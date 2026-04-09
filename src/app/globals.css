@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f9ff;
+  --foreground: #1a2340;
 }
 
 @theme inline {
@@ -12,15 +12,26 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background:
+    radial-gradient(1100px 380px at 50% -140px, rgba(104, 84, 255, 0.22), transparent 65%),
+    radial-gradient(900px 280px at 10% 10%, rgba(59, 130, 246, 0.12), transparent 65%),
+    linear-gradient(180deg, #f8faff 0%, #f3f6ff 100%);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.mobile-glass-card {
+  border: 1px solid rgba(99, 102, 241, 0.14);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(244, 247, 255, 0.94) 100%);
+  backdrop-filter: blur(6px);
+  box-shadow:
+    0 10px 24px rgba(89, 103, 155, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.mobile-pill {
+  border-radius: 999px;
+  background: rgba(103, 130, 255, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.18);
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { Avatar } from "@/components/common/avatar";
 import { PublicProfileSendForm } from "@/components/u/public-profile-send-form";
@@ -17,6 +17,15 @@ export default async function PublicUserPage({ params }: PublicUserPageProps) {
 
   const { username } = await params;
   const supabase = await createSupabaseServerClient();
+  const returnPath = `/u/${encodeURIComponent(username)}`;
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect(`/auth/sign-in?next=${encodeURIComponent(returnPath)}`);
+  }
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -27,30 +36,47 @@ export default async function PublicUserPage({ params }: PublicUserPageProps) {
   if (!profile) {
     notFound();
   }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: senderProfile } = user
+    ? await supabase.from("profiles").select("username, avatar_url").eq("id", user.id).maybeSingle()
+    : { data: null };
 
   const isSelf = Boolean(user && user.id === profile.id);
-  const returnPath = `/u/${encodeURIComponent(profile.username)}`;
   const signInHref = `/auth/sign-in?next=${encodeURIComponent(returnPath)}`;
-  const signUpHref = `/auth/sign-up?next=${encodeURIComponent(returnPath)}`;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-950 via-slate-900 to-black px-6 py-10 text-white">
-      <section className="w-full max-w-xl rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
-        <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">SecretGift Profile</p>
-        <div className="mt-4 flex justify-center">
-          <Avatar src={profile.avatar_url} size={96} className="h-24 w-24" />
-        </div>
-        <h1 className="mt-4 text-3xl font-bold">@{profile.username}</h1>
-        <p className="mt-2 text-sm text-slate-300">
-          Send a Thingyan splash, soot mark, or a small gift with an optional message.
+    <main className="flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
+      <section className="mobile-glass-card w-full max-w-xl rounded-3xl p-6 text-center sm:p-8">
+        <p className="text-xs uppercase tracking-[0.2em] text-indigo-500">SecretGift Profile</p>
+        <h1 className="mt-3 text-2xl font-bold text-slate-900">Send Gift To Your Friend</h1>
+        <p className="mt-2 text-sm text-slate-600">
+          Send a Thingyan splash, soot mark, or a small gift to @{profile.username}.
         </p>
 
+        {isSelf ? (
+          <div className="mx-auto mt-5 flex w-full max-w-md items-center justify-center rounded-2xl border border-indigo-100 bg-white px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <Avatar src={profile.avatar_url} size={34} className="h-8 w-8" />
+              <span className="truncate text-sm font-medium text-slate-700">@{profile.username}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="mx-auto mt-5 flex w-full max-w-md items-center justify-between rounded-2xl border border-indigo-100 bg-white px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <Avatar src={senderProfile?.avatar_url ?? null} size={34} className="h-8 w-8" />
+              <span className="truncate text-sm font-medium text-slate-700">
+                {senderProfile?.username ? `@${senderProfile.username}` : "Guest"}
+              </span>
+            </div>
+            <span className="mx-2 text-indigo-300">→</span>
+            <div className="flex min-w-0 items-center gap-2">
+              <Avatar src={profile.avatar_url} size={34} className="h-8 w-8" />
+              <span className="truncate text-sm font-medium text-slate-700">@{profile.username}</span>
+            </div>
+          </div>
+        )}
+
         {!user ? (
-          <div className="mt-8 rounded-xl border border-white/10 bg-black/20 px-4 py-5 text-sm text-slate-200">
+          <div className="mt-8 rounded-2xl border border-indigo-100 bg-white px-4 py-5 text-sm text-slate-700">
             <p>
               Open this public profile link (or QR), then sign in to send a message with one
               Thingyan action or gift.
@@ -58,19 +84,15 @@ export default async function PublicUserPage({ params }: PublicUserPageProps) {
             <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
               <Link
                 href={signInHref}
-                className="rounded-full bg-cyan-400 px-5 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
+                className="rounded-full bg-indigo-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400"
               >
-                Sign in
-              </Link>
-              <Link href={signUpHref} className="text-sm font-medium text-cyan-300 hover:text-cyan-200">
-                Create account
+                Continue with Google
               </Link>
             </div>
           </div>
         ) : (
           <PublicProfileSendForm
             receiverUsername={profile.username}
-            receiverAvatarUrl={profile.avatar_url}
             isSelf={isSelf}
           />
         )}

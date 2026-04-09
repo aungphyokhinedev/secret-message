@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { useSupabaseBrowserOptional } from "@/components/providers/supabase-browser-provider";
+import { useUiLanguage } from "@/components/providers/ui-language-provider";
 import { safeRedirectPath } from "@/lib/safe-redirect-path";
 
 type OAuthGoogleButtonProps = {
@@ -11,6 +12,7 @@ type OAuthGoogleButtonProps = {
 
 export function OAuthGoogleButton({ nextPath }: OAuthGoogleButtonProps) {
   const supabase = useSupabaseBrowserOptional();
+  const { t } = useUiLanguage();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,9 +50,9 @@ export function OAuthGoogleButton({ nextPath }: OAuthGoogleButtonProps) {
         return;
       }
 
-      setError("Could not start Google sign-in.");
+      setError(t("Could not start Google sign-in.", "Google ဖြင့် ဝင်ရောက်ခြင်း မစတင်နိုင်ပါ။"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong.");
+      setError(e instanceof Error ? e.message : t("Something went wrong.", "အမှားတစ်ခု ဖြစ်ပွားခဲ့သည်။"));
     } finally {
       setPending(false);
     }
@@ -62,7 +64,7 @@ export function OAuthGoogleButton({ nextPath }: OAuthGoogleButtonProps) {
         type="button"
         onClick={() => void handleClick()}
         disabled={pending}
-        className="flex w-full items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-violet-500 to-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:from-violet-400 hover:to-blue-400 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <svg aria-hidden className="h-5 w-5" viewBox="0 0 24 24">
           <path
@@ -82,9 +84,9 @@ export function OAuthGoogleButton({ nextPath }: OAuthGoogleButtonProps) {
             d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
           />
         </svg>
-        {pending ? "Redirecting..." : "Continue with Google"}
+        {pending ? t("Redirecting...", "ပြန်လည်ညွှန်းပို့နေသည်...") : t("Continue with Google", "Google ဖြင့် ဆက်လုပ်ရန်")}
       </button>
-      {error ? <p className="text-center text-sm text-rose-300">{error}</p> : null}
+      {error ? <p className="text-center text-sm text-rose-500">{error}</p> : null}
     </div>
   );
 }

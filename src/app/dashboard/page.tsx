@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 
 import { InteractionsSummaryPanel } from "@/components/dashboard/interactions-summary-panel";
-import { ProfileAvatarUploader } from "@/components/dashboard/profile-avatar-uploader";
-import { SignOutButton } from "@/components/dashboard/sign-out-button";
 import { SupabaseConnectedBadge } from "@/components/dashboard/supabase-connected-badge";
 import { ShareCard } from "@/components/share/share-card";
 import { ensureProfileForAuthUser } from "@/lib/profile-bootstrap";
@@ -88,17 +86,24 @@ export default async function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-black px-6 py-10 text-white">
+    <main className="min-h-screen px-4 py-8 text-slate-800 sm:px-6 sm:py-10">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Dashboard</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-indigo-500">Dashboard</p>
             <SupabaseConnectedBadge />
           </div>
-          <h1 className="mt-2 text-3xl font-bold">Your Thingyan Interactions</h1>
-          <p className="mt-1 text-sm text-slate-300">Signed in as {user.email}</p>
+          <h1 className="mt-2 flex items-center gap-2 text-3xl font-bold text-slate-900">
+            <svg viewBox="0 0 24 24" className="h-7 w-7 text-sky-500" aria-hidden>
+              <path
+                fill="currentColor"
+                d="M12 2c-1.5 3-6 7-6 11a6 6 0 1 0 12 0c0-4-4.5-8-6-11Zm0 18a4 4 0 0 1-4-4c0-1.8 1.2-3.6 2.6-5.3a4.7 4.7 0 0 0 4.8 5.5 4 4 0 0 1-3.4 3.8Z"
+              />
+            </svg>
+            <span>Online Thingyan</span>
+          </h1>
+          <p className="mt-1 text-sm text-slate-600">Signed in as {user.email}</p>
         </div>
-        <SignOutButton />
       </div>
 
       <div className="mx-auto mt-8 w-full max-w-4xl space-y-6">
@@ -110,7 +115,6 @@ export default async function DashboardPage() {
           notice={feedNotice}
         />
         <ShareCard username={username} />
-        <ProfileAvatarUploader initialAvatarUrl={myProfile?.avatar_url ?? null} />
       </div>
     </main>
   );

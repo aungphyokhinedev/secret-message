@@ -6,11 +6,10 @@ import {
   sendInteractionAction,
   type SendInteractionState,
 } from "@/app/u/[username]/actions";
-import { Avatar } from "@/components/common/avatar";
+import { useUiLanguage } from "@/components/providers/ui-language-provider";
 
 type PublicProfileSendFormProps = {
   receiverUsername: string;
-  receiverAvatarUrl: string | null;
   /** When the viewer is the profile owner, hide the send UI. */
   isSelf: boolean;
 };
@@ -25,9 +24,9 @@ const OPTIONS: { value: "water_splash" | "black_soot" | "food" | "flower"; label
 
 export function PublicProfileSendForm({
   receiverUsername,
-  receiverAvatarUrl,
   isSelf,
 }: PublicProfileSendFormProps) {
+  const { t } = useUiLanguage();
   const [state, formAction, pending] = useActionState<SendInteractionState, FormData>(
     sendInteractionAction,
     null,
@@ -35,9 +34,11 @@ export function PublicProfileSendForm({
 
   if (isSelf) {
     return (
-      <p className="mt-6 rounded-xl border border-amber-300/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-        This is your public link. Share it so friends can send splashes and gifts. You will see them on
-        your dashboard.
+      <p className="mt-6 rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">
+        {t(
+          "This is your public link. Share it so friends can send splashes and gifts. You will see them on your dashboard.",
+          "ဤ link သည် သင့် public link ဖြစ်ပါသည်။ သူငယ်ချင်းများထံ မျှဝေပြီး splash နှင့် gift များပို့ခိုင်းနိုင်သည်။ Dashboard တွင် ကြည့်နိုင်ပါသည်။",
+        )}
       </p>
     );
   }
@@ -46,17 +47,9 @@ export function PublicProfileSendForm({
     <form className="mt-8 space-y-5 text-left" action={formAction}>
       <input type="hidden" name="receiver_username" value={receiverUsername} />
 
-      <section className="rounded-xl border border-cyan-400/30 bg-cyan-500/10 p-4">
-        <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Sending To</p>
-        <div className="mt-2 flex items-center gap-3">
-          <Avatar src={receiverAvatarUrl} size={40} className="h-10 w-10" />
-          <p className="text-sm text-slate-100">@{receiverUsername}</p>
-        </div>
-      </section>
-
       <fieldset>
-        <legend className="text-sm font-medium text-slate-200">Choose one action or gift</legend>
-        <p className="mt-1 text-xs text-slate-400">
+        <legend className="text-sm font-medium text-slate-700">{t("Choose one action or gift", "Action သို့ Gift တစ်ခုရွေးပါ")}</legend>
+        <p className="mt-1 text-xs text-slate-500">
           Actions: Water splash / Black soot. Gifts: Food (Mont Lone Yay Paw) / Flower (Padauk
           Pann).
         </p>
@@ -64,18 +57,18 @@ export function PublicProfileSendForm({
           {OPTIONS.map((opt) => (
             <label
               key={opt.value}
-              className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-black/25 px-3 py-3 transition hover:border-cyan-400/40 has-[:checked]:border-cyan-400/60 has-[:checked]:bg-cyan-500/10"
+              className="flex cursor-pointer items-start gap-3 rounded-2xl border border-indigo-100 bg-white px-3 py-3 transition hover:border-indigo-200 has-[:checked]:border-indigo-300 has-[:checked]:bg-indigo-50"
             >
               <input
                 type="radio"
                 name="interaction_type"
                 value={opt.value}
                 required
-                className="mt-1 border-white/30 text-cyan-400 focus:ring-cyan-400"
+                className="mt-1 border-indigo-300 text-indigo-500 focus:ring-indigo-400"
               />
               <span>
-                <span className="block text-sm font-medium text-white">{opt.label}</span>
-                <span className="text-xs text-slate-400">{opt.hint}</span>
+                <span className="block text-sm font-medium text-slate-800">{opt.label}</span>
+                <span className="text-xs text-slate-500">{opt.hint}</span>
               </span>
             </label>
           ))}
@@ -83,26 +76,26 @@ export function PublicProfileSendForm({
       </fieldset>
 
       <label className="block text-sm">
-        <span className="mb-1 block text-slate-200">Message</span>
+        <span className="mb-1 block text-slate-700">{t("Message", "စာတို")}</span>
         <textarea
           name="message"
           rows={3}
           maxLength={2000}
           required
-          placeholder="Write your message to this receiver..."
-          className="w-full resize-y rounded-lg border border-white/15 bg-black/20 px-3 py-2 text-sm outline-none ring-cyan-300 transition focus:ring"
+          placeholder={t("Write your message to this receiver...", "လက်ခံသူအတွက် စာကိုရေးပါ...")}
+          className="w-full resize-y rounded-xl border border-indigo-100 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-indigo-300 transition focus:ring"
         />
       </label>
 
-      {state?.error ? <p className="text-sm text-rose-300">{state.error}</p> : null}
-      {state?.message ? <p className="text-sm text-emerald-300">{state.message}</p> : null}
+      {state?.error ? <p className="text-sm text-rose-500">{state.error}</p> : null}
+      {state?.message ? <p className="text-sm text-emerald-600">{state.message}</p> : null}
 
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-full bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {pending ? "Sending…" : "Send"}
+        {pending ? t("Sending…", "ပို့နေသည်…") : t("Send", "ပို့မည်")}
       </button>
     </form>
   );

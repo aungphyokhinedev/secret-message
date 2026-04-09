@@ -4,6 +4,7 @@ import { toPng } from "html-to-image";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Avatar } from "@/components/common/avatar";
+import { useUiLanguage } from "@/components/providers/ui-language-provider";
 import type { Database } from "@/types/database";
 
 type InteractionType = Database["public"]["Enums"]["interaction_type"];
@@ -13,11 +14,9 @@ type InteractionStageCardProps = {
   onClose: () => void;
   type: InteractionType;
   receiverUsername: string;
-  receiverAvatarUrl: string | null;
   senderLabel: string;
   senderAvatarUrl: string | null;
   message: string;
-  createdAt: string;
 };
 
 const TYPE_LABEL: Record<InteractionType, string> = {
@@ -27,34 +26,29 @@ const TYPE_LABEL: Record<InteractionType, string> = {
   flower: "Flower gift",
 };
 
-const TYPE_ICON: Record<InteractionType, string> = {
-  water_splash: "💧",
-  black_soot: "🖤",
-  food: "🍡",
-  flower: "🌼",
-};
-
 export function InteractionStageCard({
   open,
   onClose,
   type,
   receiverUsername,
-  receiverAvatarUrl,
   senderLabel,
   senderAvatarUrl,
   message,
-  createdAt,
 }: InteractionStageCardProps) {
+  const { t } = useUiLanguage();
   const stageRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
+  const [sheetStatus, setSheetStatus] = useState<"loading" | "ready" | "missing">("loading");
+  const [animationEnded, setAnimationEnded] = useState(false);
+  const [replayToken, setReplayToken] = useState(0);
 
   const safeMessage = useMemo(() => {
     const trimmed = message.trim();
-    return trimmed.length > 0 ? trimmed : "No message text.";
-  }, [message]);
+    return trimmed.length > 0 ? trimmed : t("No message text.", "စာသားမပါရှိပါ။");
+  }, [message, t]);
 
   useEffect(() => {
     if (!open) return;
@@ -64,188 +58,95 @@ export function InteractionStageCard({
     if (!ctx) return;
 
     let rafId = 0;
-    const start = performance.now();
+    let cancelled = false;
+    let hasMarkedEnd = false;
 
-    const render = (time: number) => {
-      const elapsed = (time - start) / 1000;
-      const cycle = elapsed % 4.2;
-      const progress = cycle / 4.2;
+    const render = (sheet: HTMLImageElement, time: number, runStartMs: number) => {
+      const startDelayMs = 2000;
+      const fps = 4;
+      const frameCount = 16;
+      const frameDurationMs = 1000 / fps;
+      const elapsedSinceRunStart = time - runStartMs;
+      const effectiveTime = Math.max(0, elapsedSinceRunStart - startDelayMs);
+      const frameIndex = Math.min(
+        frameCount - 1,
+        Math.floor(effectiveTime / frameDurationMs),
+      );
+      const col = frameIndex % 4;
+      const row = Math.floor(frameIndex / 4);
       const w = canvas.width;
       const h = canvas.height;
-      const walkIn = Math.min(1, progress / 0.34);
-      const senderX = w * (0.1 + 0.27 * walkIn);
-      const receiverX = w * (0.9 - 0.27 * walkIn);
-      const bodyY = h * 0.78;
-      const headY = h * 0.53;
+      const frameW = Math.floor(sheet.width / 4);
+      const frameH = Math.floor(sheet.height / 4);
 
       ctx.clearRect(0, 0, w, h);
       ctx.fillStyle = "rgba(2, 6, 23, 0.35)";
       ctx.fillRect(0, 0, w, h);
-      ctx.fillStyle = "rgba(6, 30, 46, 0.5)";
-      ctx.fillRect(0, h * 0.8, w, h * 0.2);
 
-      const drawCharacter = (
-        x: number,
-        color: string,
-        facing: "left" | "right",
-        mood: "neutral" | "sad" | "surprised" | "happy" | "ashamed",
-      ) => {
-        const dir = facing === "right" ? 1 : -1;
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 5;
-        ctx.beginPath();
-        ctx.arc(x, headY, 28, 0, Math.PI * 2);
-        ctx.stroke();
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(
+        sheet,
+        col * frameW,
+        row * frameH,
+        frameW,
+        frameH,
+        0,
+        0,
+        w,
+        h,
+      );
 
-        ctx.fillStyle = "rgba(255,255,255,0.95)";
-        ctx.beginPath();
-        ctx.arc(x - 9 * dir, headY - 6, 3.2, 0, Math.PI * 2);
-        ctx.arc(x + 3 * dir, headY - 6, 3.2, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.strokeStyle = "rgba(255,255,255,0.95)";
-        ctx.lineWidth = 2.8;
-        if (mood === "sad") {
-          ctx.beginPath();
-          ctx.arc(x - 3 * dir, headY + 10, 8, Math.PI * 0.15, Math.PI * 0.85, true);
-          ctx.stroke();
-        } else if (mood === "surprised") {
-          ctx.beginPath();
-          ctx.arc(x - 2 * dir, headY + 10, 4.6, 0, Math.PI * 2);
-          ctx.stroke();
-        } else if (mood === "happy") {
-          ctx.beginPath();
-          ctx.arc(x - 3 * dir, headY + 7, 9, Math.PI * 0.15, Math.PI * 0.85);
-          ctx.stroke();
-        } else if (mood === "ashamed") {
-          ctx.beginPath();
-          ctx.arc(x - 4 * dir, headY + 9, 6, Math.PI * 0.2, Math.PI * 0.82);
-          ctx.stroke();
-          ctx.fillStyle = "rgba(251, 191, 36, 0.5)";
-          ctx.beginPath();
-          ctx.arc(x - 12 * dir, headY + 4, 3.5, 0, Math.PI * 2);
-          ctx.arc(x + 7 * dir, headY + 4, 3.5, 0, Math.PI * 2);
-          ctx.fill();
-        } else {
-          ctx.beginPath();
-          ctx.moveTo(x - 8 * dir, headY + 10);
-          ctx.lineTo(x + 2 * dir, headY + 10);
-          ctx.stroke();
-        }
-
-        ctx.beginPath();
-        ctx.moveTo(x, headY + 28);
-        ctx.lineTo(x, bodyY);
-        ctx.stroke();
-
-        const legSwing = Math.sin(elapsed * 7.5) * (1 - Math.min(1, (progress - 0.34) / 0.1));
-        ctx.beginPath();
-        ctx.moveTo(x, bodyY - 2);
-        ctx.lineTo(x - 20 + legSwing * 6 * dir, bodyY + 36);
-        ctx.moveTo(x, bodyY);
-        ctx.lineTo(x + 20 - legSwing * 6 * dir, bodyY + 36);
-        ctx.stroke();
-
-        const armReach = Math.min(1, Math.max(0, (progress - 0.34) / 0.2));
-        ctx.beginPath();
-        ctx.moveTo(x, headY + 44);
-        ctx.lineTo(x - 22 * dir, headY + 64);
-        ctx.moveTo(x, headY + 44);
-        ctx.lineTo(x + (10 + armReach * 26) * dir, headY + 56 - armReach * 8);
-        ctx.stroke();
-      };
-
-      const receiverMoodByType: Record<InteractionType, "sad" | "surprised" | "happy" | "ashamed"> = {
-        black_soot: "sad",
-        water_splash: "surprised",
-        food: "happy",
-        flower: "ashamed",
-      };
-      drawCharacter(senderX, "rgba(103, 232, 249, 0.95)", "right", "neutral");
-      drawCharacter(receiverX, "rgba(250, 204, 21, 0.95)", "left", receiverMoodByType[type]);
-
-      if (type === "water_splash") {
-        const toss = Math.min(1, Math.max(0, (progress - 0.42) / 0.34));
-        const bucketX = senderX + 36 + toss * 38;
-        const bucketY = headY + 38 - toss * 16;
-
-        ctx.font = "40px sans-serif";
-        ctx.fillText("🪣", bucketX - 20, bucketY);
-
-        for (let i = 0; i < 22; i += 1) {
-          const t = (i / 21) * toss;
-          const x = bucketX + t * (receiverX - bucketX - 18);
-          const arcY = bucketY - 140 * t * (1 - t);
-          const y = arcY + 16;
-          const r = 3 + (i % 3);
-          ctx.fillStyle = "rgba(34, 211, 238, 0.78)";
-          ctx.beginPath();
-          ctx.arc(x, y, r, 0, Math.PI * 2);
-          ctx.fill();
+      if (frameIndex >= frameCount - 1) {
+        if (!hasMarkedEnd) {
+          hasMarkedEnd = true;
+          setAnimationEnded(true);
         }
       }
 
-      if (type === "black_soot") {
-        const reach = Math.min(1, Math.max(0, (progress - 0.42) / 0.34));
-        const handX = senderX + 30 + reach * (receiverX - senderX - 40);
-        const handY = headY + 26 - Math.sin(reach * Math.PI) * 28;
-
-        ctx.font = "38px sans-serif";
-        ctx.fillText("✋🏿", handX - 16, handY);
-
-        const sootCount = Math.floor(8 + reach * 18);
-        for (let i = 0; i < sootCount; i += 1) {
-          const a = (Math.PI * 2 * i) / sootCount;
-          const sx = receiverX + Math.cos(a) * (9 + (i % 3) * 6);
-          const sy = headY + Math.sin(a) * (8 + (i % 4) * 4);
-          ctx.fillStyle = "rgba(17, 24, 39, 0.72)";
-          ctx.beginPath();
-          ctx.arc(sx, sy, 4 + (i % 3), 0, Math.PI * 2);
-          ctx.fill();
-        }
+      if (frameIndex < frameCount - 1) {
+        rafId = window.requestAnimationFrame((nextTime) => render(sheet, nextTime, runStartMs));
       }
-
-      if (type === "food") {
-        const pass = Math.min(1, Math.max(0, (progress - 0.42) / 0.34));
-        const plateX = senderX + 28 + pass * (receiverX - senderX - 54);
-        const plateY = headY + 55 - 18 * Math.sin(pass * Math.PI);
-        ctx.font = "42px sans-serif";
-        ctx.fillText("🍽️", plateX - 22, plateY + 4);
-
-        const sweets = ["🍡", "🥥", "🍡", "🥥", "🍡"];
-        ctx.font = "26px sans-serif";
-        for (let i = 0; i < sweets.length; i += 1) {
-          const a = elapsed * 2.2 + i * 1.2;
-          const sx = plateX + Math.cos(a) * 34;
-          const sy = plateY - 12 + Math.sin(a) * 12;
-          ctx.fillText(sweets[i], sx - 10, sy);
-        }
-      }
-
-      if (type === "flower") {
-        const give = Math.min(1, Math.max(0, (progress - 0.42) / 0.34));
-        const flowerX = senderX + 26 + give * (receiverX - senderX - 50);
-        const flowerY = headY + 28 - 10 * Math.sin(give * Math.PI);
-        ctx.font = "38px sans-serif";
-        ctx.fillText("💐", flowerX - 16, flowerY);
-
-        ctx.font = "24px sans-serif";
-        for (let i = 0; i < 8; i += 1) {
-          const drift = (elapsed * 40 + i * 42) % 140;
-          const fx = receiverX - 44 + ((i * 17) % 92);
-          const fy = headY - 68 + drift;
-          ctx.globalAlpha = 0.55;
-          ctx.fillText("🌼", fx, fy);
-          ctx.globalAlpha = 1;
-        }
-      }
-
-      rafId = window.requestAnimationFrame(render);
     };
+    const candidates = [
+      `/img/${type}.png`,
+      `/img/${type}.webp`,
+      `/img/${type}.jpg`,
+      `/img/${type}.jpeg`,
+    ];
 
-    rafId = window.requestAnimationFrame(render);
-    return () => window.cancelAnimationFrame(rafId);
-  }, [open, type]);
+    async function loadFirstAvailable() {
+      setSheetStatus("loading");
+      setAnimationEnded(false);
+      for (const src of candidates) {
+        try {
+          const img = new Image();
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject(new Error("Failed"));
+            img.src = src;
+          });
+          if (cancelled) return;
+          setSheetStatus("ready");
+          const runStartMs = performance.now();
+          const renderTick = (time: number) => {
+            if (cancelled) return;
+            render(img, time, runStartMs);
+          };
+          rafId = window.requestAnimationFrame(renderTick);
+          return;
+        } catch {
+          // try next extension
+        }
+      }
+      if (!cancelled) setSheetStatus("missing");
+    }
+
+    void loadFirstAvailable();
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(rafId);
+    };
+  }, [open, type, replayToken]);
 
   async function makeBlob(): Promise<Blob> {
     if (!stageRef.current) {
@@ -271,7 +172,7 @@ export function InteractionStageCard({
       URL.revokeObjectURL(url);
       setShareStatus("Downloaded image.");
     } catch {
-      setError("Could not create screenshot. Please try again.");
+      setError(t("Could not create screenshot. Please try again.", "Screenshot မဖန်တီးနိုင်ပါ။ ထပ်ကြိုးစားပါ။"));
     } finally {
       setBusy(false);
     }
@@ -292,7 +193,7 @@ export function InteractionStageCard({
           text,
           files: [file],
         });
-        setShareStatus("Shared successfully.");
+        setShareStatus(t("Shared successfully.", "မျှဝေပြီးပါပြီ။"));
       } else {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -300,10 +201,10 @@ export function InteractionStageCard({
         a.download = `thingyan-${type}-${Date.now()}.png`;
         a.click();
         URL.revokeObjectURL(url);
-        setShareStatus("Web Share unavailable. Downloaded image instead.");
+        setShareStatus(t("Web Share unavailable. Downloaded image instead.", "Web Share မရရှိပါ။ Download ပြုလုပ်ပြီးပါပြီ။"));
       }
     } catch {
-      setError("Could not share screenshot. Please try again.");
+      setError(t("Could not share screenshot. Please try again.", "Screenshot မမျှဝေနိုင်ပါ။ ထပ်ကြိုးစားပါ။"));
     } finally {
       setBusy(false);
     }
@@ -312,70 +213,104 @@ export function InteractionStageCard({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <section className="w-full max-w-2xl rounded-2xl border border-cyan-300/25 bg-gradient-to-br from-cyan-500/10 via-slate-900 to-black p-4 shadow-2xl">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-cyan-200">Interaction animation</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-2 sm:p-3">
+      <section className="w-full max-w-lg rounded-2xl bg-white p-3 shadow-xl sm:p-4">
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-indigo-700">
+            {t("Let's see what you have received", "သင်လက်ခံရရှိထားတာတွေကို ကြည့်ရအောင်")}
+          </h3>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-white/20 px-3 py-1 text-xs text-slate-100 hover:border-cyan-300 hover:text-cyan-200"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-transparent text-indigo-700 transition hover:bg-indigo-50"
+            aria-label={t("Close", "ပိတ်ရန်")}
+            title={t("Close", "ပိတ်ရန်")}
           >
-            Close
+            <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
+              <path
+                fill="currentColor"
+                d="M18.3 5.71 12 12l6.3 6.29-1.41 1.41L10.59 13.4 4.29 19.7 2.88 18.29 9.17 12 2.88 5.71 4.29 4.29l6.3 6.3 6.3-6.3 1.41 1.42Z"
+              />
+            </svg>
           </button>
         </div>
 
-        <div
-          ref={stageRef}
-          className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-slate-950/70"
-        >
-          <div className="flex items-center justify-between border-b border-white/10 px-3 py-2 text-xs">
-            <div className="flex items-center gap-2 text-slate-200">
-              <Avatar src={senderAvatarUrl} size={28} className="h-7 w-7" />
-              <span>{senderLabel}</span>
-            </div>
-            <div className="flex items-center gap-2 text-cyan-200">
-              <span>@{receiverUsername}</span>
-              <Avatar src={receiverAvatarUrl} size={28} className="h-7 w-7" />
+        <div ref={stageRef} className="overflow-hidden">
+          <div className="px-3 py-2 text-xs">
+            <div className="flex items-start gap-2 text-slate-700">
+              <Avatar src={senderAvatarUrl} size={30} className="h-8 w-8" />
+              <div className="max-w-[290px]">
+                <p className="font-medium">{senderLabel}</p>
+                <div className="relative mt-1 rounded-2xl rounded-tl-sm border border-indigo-100 bg-white/75 px-3 py-2 text-sm leading-5 text-slate-700 shadow-sm backdrop-blur-sm">
+                  {safeMessage}
+                  <span className="absolute -left-1 top-2 h-2.5 w-2.5 rotate-45 border-b border-l border-indigo-100 bg-white/75" />
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="relative h-56">
-            <canvas ref={canvasRef} width={960} height={440} className="h-full w-full" />
-            <div className="pointer-events-none absolute left-3 top-3 rounded-lg border border-white/10 bg-black/45 px-3 py-2 text-xs text-white">
-              <p className="font-semibold text-cyan-200">
-                {TYPE_ICON[type]} {TYPE_LABEL[type]}
-              </p>
-              <p className="mt-1">{new Date(createdAt).toLocaleString()}</p>
-            </div>
-            <div className="pointer-events-none absolute inset-x-3 bottom-3 rounded-lg border border-white/10 bg-black/55 px-3 py-2 text-xs text-slate-100">
-              <p className="text-cyan-200">{senderLabel} says:</p>
-              <p className="mt-1">{safeMessage}</p>
-            </div>
+          <div className="relative mx-auto aspect-square w-full max-w-[200px]">
+            <canvas ref={canvasRef} width={720} height={720} className="h-full w-full" />
+            {sheetStatus !== "ready" ? (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/85 px-4 text-center text-xs text-slate-600">
+                {sheetStatus === "loading"
+                  ? t("Loading animation sheet...", "Animation sheet တင်နေသည်...")
+                  : t(
+                      `Missing sprite sheet: add /public/img/${type}.png (or .webp/.jpg/.jpeg) as a 4x4 sequence.`,
+                      `Sprite sheet မတွေ့ပါ: /public/img/${type}.png (သို့ .webp/.jpg/.jpeg) ကို 4x4 sequence အဖြစ် ထည့်ပါ။`,
+                    )}
+              </div>
+            ) : null}
+            {sheetStatus === "ready" && animationEnded ? (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => setReplayToken((v) => v + 1)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-indigo-200/70 bg-white/55 text-base text-indigo-700 backdrop-blur-sm transition hover:bg-white/75"
+                  aria-label="Replay animation"
+                >
+                  ▶
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex items-center gap-2">
           <button
             type="button"
             onClick={() => void shareImage()}
             disabled={busy}
-            className="rounded-full bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-indigo-200 bg-white text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+            title={t("Share", "မျှဝေရန်")}
+            aria-label={t("Share", "မျှဝေရန်")}
           >
-            {busy ? "Working..." : "Share Stage"}
+            <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
+              <path
+                fill="currentColor"
+                d="M18 16a3 3 0 0 0-2.4 1.2l-6.9-3.45a3.33 3.33 0 0 0 0-1.5L15.6 8.8A3 3 0 1 0 15 7a2.8 2.8 0 0 0 .06.58l-6.9 3.45a3 3 0 1 0 0 1.94l6.9 3.45A2.8 2.8 0 0 0 15 17a3 3 0 1 0 3-1Z"
+              />
+            </svg>
           </button>
           <button
             type="button"
             onClick={() => void downloadPng()}
             disabled={busy}
-            className="rounded-full border border-white/20 px-3 py-2 text-xs font-medium text-slate-100 transition hover:border-cyan-300 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-500 text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
+            title={t("Save screenshot", "Screenshot သိမ်းရန်")}
+            aria-label={t("Save screenshot", "Screenshot သိမ်းရန်")}
           >
-            Download PNG
+            <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
+              <path
+                fill="currentColor"
+                d="M9 3 7.17 5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.17L15 3H9Zm3 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-1.8A3.2 3.2 0 1 0 12 9.8a3.2 3.2 0 0 0 0 6.4Z"
+              />
+            </svg>
           </button>
         </div>
 
-        {shareStatus ? <p className="mt-2 text-xs text-emerald-300">{shareStatus}</p> : null}
-        {error ? <p className="mt-2 text-xs text-rose-300">{error}</p> : null}
+        {shareStatus ? <p className="mt-2 text-xs text-emerald-600">{shareStatus}</p> : null}
+        {error ? <p className="mt-2 text-xs text-rose-500">{error}</p> : null}
       </section>
     </div>
   );

@@ -20,6 +20,8 @@ create table if not exists public.gifts (
 
 alter table public.messages enable row level security;
 alter table public.gifts enable row level security;
+alter table public.messages force row level security;
+alter table public.gifts force row level security;
 
 drop policy if exists "users can manage own messages" on public.messages;
 create policy "users can manage own messages"
@@ -84,6 +86,8 @@ create index if not exists interactions_created_at_idx on public.interactions (c
 
 alter table public.profiles enable row level security;
 alter table public.interactions enable row level security;
+alter table public.profiles force row level security;
+alter table public.interactions force row level security;
 
 -- Profiles are readable by authenticated users and writable only by owner.
 drop policy if exists "profiles are readable by authenticated users" on public.profiles;
