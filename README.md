@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SecretGift
 
-## Getting Started
+A Next.js app for sending **secret messages** and **virtual gifts** with timed unlocks.
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Next.js (App Router)
+- TypeScript
+- Tailwind CSS
+- Supabase (Auth + Postgres)
+
+## Project structure
+
+```text
+src/
+  app/
+  components/
+    landing/
+    layout/
+  hooks/
+  lib/
+    supabase/
+  types/
+supabase/
+  schema.sql
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Getting started
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Install dependencies:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   ```bash
+   npm install
+   ```
 
-## Learn More
+2. Copy environment variables:
 
-To learn more about Next.js, take a look at the following resources:
+   ```bash
+   cp .env.example .env.local
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+3. Fill in values in `.env.local`:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `NEXT_PUBLIC_APP_URL` (example: `http://localhost:3000`)
 
-## Deploy on Vercel
+4. Run the app:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   ```bash
+   npm run dev
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Supabase setup
+
+1. Create a new Supabase project.
+2. In Supabase SQL Editor, run `supabase/schema.sql` to create the app tables/views (`profiles`, `messages`, `gifts`, `interactions`, `interactions_feed`) with RLS policies.
+3. In Supabase Auth settings, enable your sign-in providers (email or OAuth like Google).
+4. In Supabase Dashboard -> Authentication -> URL configuration, add callback URLs:
+   - `http://localhost:3000/auth/callback`
+   - `http://127.0.0.1:3000/auth/callback`
+   - `https://YOUR-PRODUCTION-DOMAIN/auth/callback`
+5. In each OAuth provider console (for example Google Cloud), add the same callback URLs.
+6. Premium sender identity visibility is currently manual: set `profiles.is_premium = true` for specific users in Supabase Table Editor or SQL.
+
+## Notes
+
+- `src/lib/supabase/client.ts` provides a browser client.
+- `src/lib/supabase/server.ts` provides a server client for App Router server components.
+- `src/hooks/useAuth.ts` includes a basic auth state hook.
+- `src/types/database.ts` contains starter database types for strongly typed queries.
