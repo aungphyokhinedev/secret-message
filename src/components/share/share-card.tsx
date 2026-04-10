@@ -156,6 +156,44 @@ export function ShareCard({ username, shareToken }: ShareCardProps) {
         </DialogHeader>
 
         <div className="space-y-6 px-6 pb-8 pt-6 sm:px-8 sm:pb-9 sm:pt-7">
+          <section
+            className="rounded-xl border border-border/70 bg-muted/25 px-4 py-3.5 sm:px-5 sm:py-4"
+            aria-labelledby="share-profile-howto-heading"
+          >
+            <h2
+              id="share-profile-howto-heading"
+              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+            >
+              {t("How to share your profile", "သင့် profile ကို မျှဝေနည်း")}
+            </h2>
+            <ol className="mt-2.5 list-decimal space-y-2.5 pl-4 text-sm leading-snug text-foreground marker:font-medium marker:text-primary">
+              <li>
+                {t(
+                  "Copy the link below or tap Share link to send it in chat, email, or social apps.",
+                  "အောက်ရှိ link ကို copy လုပ်ပါ သို့မဟုတ် Link မျှဝေ ခလုတ်ကို နှိပ်ပြီး chat၊ email သို့မဟုတ် လူမှုကွန်ရက်တွင် ပို့ပါ။",
+                )}
+              </li>
+              <li>
+                {t(
+                  "Or let friends scan the QR — show it on your phone, save it as an image, or print it.",
+                  "သို့မဟုတ် သူငယ်ချင်းများကို QR ကို scan ခိုင်းပါ — ဖုန်းပေါ်တွင် ပြပါ၊ ပုံအနေဖြင့် သိမ်းပါ သို့မဟုတ် ပရင့်ထုတ်ပါ။",
+                )}
+              </li>
+              <li>
+                {t(
+                  "They open your page, pick a splash or gift, write a short message, and send. You’ll see it in Dashboard → Received.",
+                  "သူတို့ သင့်စာမျက်နှာကို ဖွင့်ပြီး ရေပက် သို့မဟုတ် လက်ဆောင်ရွေးကာ စာတိုရေးပို့ပါ။ သင်သည် ဒက်ရှ်ဘုတ် → လက်ခံမှု တွင် မြင်ရပါမည်။",
+                )}
+              </li>
+            </ol>
+            <p className="mt-3 border-t border-border/50 pt-3 text-xs leading-relaxed text-muted-foreground">
+              {t(
+                "Use Regenerate link only if an old link was leaked — it stops the previous URL from working.",
+                "လင့်အဟောင်းကို မည်သူမျှ မသင့်တော်ပါကသာ လင့်အသစ်ပြန်ထုတ် ကိုသုံးပါ — ယခင်လင့် အလုပ်မလုပ်တော့ပါ။",
+              )}
+            </p>
+          </section>
+
           <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-stretch sm:justify-end">
             <Button
               type="button"
@@ -191,10 +229,13 @@ export function ShareCard({ username, shareToken }: ShareCardProps) {
             <button
               type="button"
               onClick={() => void copyLink()}
-              className="mt-5 w-full break-all text-left font-mono text-sm leading-relaxed text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+              className={cn(
+                "share-profile-dialog__link-field relative z-0 mt-5 w-full overflow-hidden rounded-xl border-2 border-border bg-background/90 px-3 py-2.5 text-left font-mono text-xs leading-relaxed text-foreground underline-offset-2 transition-colors sm:text-sm",
+                "hover:bg-muted/35 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35",
+              )}
               title={t("Click to copy link", "Link ကိုကူးယူရန် နှိပ်ပါ")}
             >
-              {shareUrl}
+              <span className="relative z-[1] block break-all">{shareUrl}</span>
             </button>
             {copied ? (
               <p className="mt-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">
@@ -207,7 +248,9 @@ export function ShareCard({ username, shareToken }: ShareCardProps) {
             <Button
               type="button"
               variant="outline"
-              className="h-11 w-full rounded-lg text-sm"
+              className={cn(
+                "share-profile-dialog__share-cta h-11 w-full rounded-lg border-2 text-sm font-semibold",
+              )}
               onClick={() => void shareLink()}
             >
               {t("Share link", "Link မျှဝေ")}

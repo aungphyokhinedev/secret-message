@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ export function OAuthGoogleButton({ nextPath }: OAuthGoogleButtonProps) {
 
     setError(null);
     setPending(true);
+    let willNavigate = false;
     try {
       const origin = window.location.origin;
       const next = encodeURIComponent(destination);
@@ -66,11 +68,11 @@ export function OAuthGoogleButton({ nextPath }: OAuthGoogleButtonProps) {
 
       if (oauthError) {
         setError(oauthError.message);
-        setPending(false);
         return;
       }
 
       if (data.url) {
+        willNavigate = true;
         window.location.assign(data.url);
         return;
       }
@@ -79,7 +81,9 @@ export function OAuthGoogleButton({ nextPath }: OAuthGoogleButtonProps) {
     } catch (e) {
       setError(e instanceof Error ? e.message : t("Something went wrong.", "အမှားတစ်ခု ဖြစ်ပွားခဲ့သည်။"));
     } finally {
-      setPending(false);
+      if (!willNavigate) {
+        setPending(false);
+      }
     }
   }
 
@@ -92,15 +96,38 @@ export function OAuthGoogleButton({ nextPath }: OAuthGoogleButtonProps) {
         onClick={() => void handleClick()}
         disabled={pending}
         className={cn(
-          "h-auto min-h-12 w-full gap-3 border-2 border-border px-5 py-3.5 text-base font-semibold shadow-md",
-          "transition-[box-shadow,border-color,background-color] duration-200",
+          "oauth-google-btn relative z-0 h-auto min-h-12 w-full gap-3 overflow-hidden border-2 border-border px-5 py-3.5 text-base font-semibold shadow-md",
+          "transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out",
           "hover:border-primary/55 hover:bg-muted/50 hover:shadow-lg",
           "focus-visible:border-primary/60 focus-visible:ring-[3px] focus-visible:ring-primary/25",
-          "dark:border-input dark:bg-card dark:hover:bg-muted/40",
+          "active:enabled:scale-[0.985] dark:border-input dark:bg-card dark:hover:bg-muted/40",
+          !pending && "oauth-google-btn--emphasize",
+          pending &&
+            "oauth-google-btn--pending pointer-events-none border-primary/45 bg-muted/40 shadow-lg shadow-primary/10 dark:bg-muted/30",
         )}
+        aria-busy={pending}
       >
-        <GoogleMark className="size-[22px] shrink-0" />
-        {pending ? t("Redirecting...", "ပြန်လည်ညွှန်းပို့နေသည်...") : t("Continue with Google", "Google ဖြင့် ဆက်လုပ်ရန်")}
+        <span
+          className={cn(
+            "relative z-[1] flex size-[22px] shrink-0 items-center justify-center",
+            pending && "oauth-google-btn__icon-slot",
+          )}
+          aria-hidden
+        >
+          {pending ? (
+            <Loader2 className="size-[22px] animate-spin text-primary" />
+          ) : (
+            <GoogleMark className={cn("size-[22px]", "oauth-google-btn__mark")} />
+          )}
+        </span>
+        <span
+          className={cn(
+            "relative z-[1] min-w-0 transition-opacity duration-200",
+            pending && "opacity-95",
+          )}
+        >
+          {pending ? t("Redirecting...", "ပြန်လည်ညွှန်းပို့နေသည်...") : t("Continue with Google", "Google ဖြင့် ဆက်လုပ်ရန်")}
+        </span>
       </Button>
       {error ? <p className="text-center text-sm text-destructive">{error}</p> : null}
     </div>

@@ -48,13 +48,16 @@ export function DashboardAccountDialog({
                 src={userAvatarUrl}
                 size={56}
                 className="h-14 w-14"
-                alt={handle === "—" ? t("Profile avatar", "Profile avatar") : `@${handle}`}
+                alt={handle === "—" ? t("Profile avatar", "Profile avatar") : handle}
                 fallbackLabel={t("Profile avatar", "Profile avatar")}
               />
             </div>
             <div className="min-w-0 flex-1 space-y-0.5">
-              <DialogTitle className="truncate text-left text-lg font-semibold leading-tight tracking-tight">
-                @{handle}
+              <DialogTitle
+                className="truncate text-left text-lg font-semibold leading-tight tracking-tight"
+                title={handle === "—" ? undefined : handle}
+              >
+                {handle}
               </DialogTitle>
               <DialogDescription className="text-left text-xs leading-snug">
                 {t("Signed in — your account details below.", "ဝင်ရောက်ထားသည် — အောက်တွင် အကောင့် အချက်အလက်များ။")}

@@ -120,6 +120,72 @@ body {
   animation: interaction-stage-message-bounce-in 620ms cubic-bezier(0.16, 0.84, 0.32, 1) both;
 }
 
+/* Header: inbox — new received messages (icon + badge) */
+.inbox-notification-btn--active::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  animation: inbox-notification-halo 2.5s ease-in-out infinite;
+}
+
+@keyframes inbox-notification-halo {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 42%, transparent);
+    opacity: 1;
+  }
+  55% {
+    box-shadow: 0 0 0 7px color-mix(in oklch, var(--primary) 0%, transparent);
+    opacity: 0.85;
+  }
+}
+
+.inbox-notification-mail {
+  transform-origin: 50% 62%;
+  animation: inbox-notification-mail-sway 2.3s ease-in-out infinite;
+}
+
+@keyframes inbox-notification-mail-sway {
+  0%,
+  100% {
+    transform: rotate(-5deg) translateY(0);
+  }
+  50% {
+    transform: rotate(5deg) translateY(-1.5px);
+  }
+}
+
+.inbox-notification-badge {
+  animation: inbox-notification-badge-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes inbox-notification-badge-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.08);
+  }
+  55% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inbox-notification-btn--active::before,
+  .inbox-notification-mail,
+  .inbox-notification-badge {
+    animation: none !important;
+  }
+  .inbox-notification-mail {
+    transform: none;
+  }
+}
+
 /* Dashboard: unread received row — gentle envelope motion */
 @keyframes dashboard-unread-envelope-sway {
   0%,
@@ -158,6 +224,305 @@ body {
     animation: none;
     filter: none;
     opacity: 1;
+  }
+}
+
+/* Google OAuth button — idle emphasis (before click) */
+.oauth-google-btn--emphasize {
+  position: relative;
+  isolation: isolate;
+  animation: oauth-google-idle-shadow 3.2s ease-in-out infinite;
+}
+
+.oauth-google-btn--emphasize::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    105deg,
+    transparent 36%,
+    color-mix(in oklch, var(--primary) 22%, transparent) 50%,
+    transparent 64%
+  );
+  background-size: 240% 100%;
+  animation: oauth-google-shine 5s ease-in-out infinite;
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+@keyframes oauth-google-idle-shadow {
+  0%,
+  100% {
+    box-shadow:
+      0 4px 14px color-mix(in oklch, var(--foreground) 8%, transparent),
+      0 0 0 1px color-mix(in oklch, var(--border) 95%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 10px 30px color-mix(in oklch, var(--primary) 22%, transparent),
+      0 0 0 1px color-mix(in oklch, var(--primary) 42%, var(--border));
+  }
+}
+
+@keyframes oauth-google-shine {
+  0% {
+    background-position: 130% 0;
+  }
+  100% {
+    background-position: -130% 0;
+  }
+}
+
+.oauth-google-btn__mark {
+  display: block;
+  transform-origin: center;
+  animation: oauth-google-mark-breathe 2.8s ease-in-out infinite;
+}
+
+@keyframes oauth-google-mark-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    transform: scale(1.07);
+    filter: drop-shadow(0 2px 6px rgba(66, 133, 244, 0.35));
+  }
+}
+
+/* Google OAuth button — loading state */
+.oauth-google-btn--pending {
+  animation: oauth-google-border-glow 1.4s ease-in-out infinite;
+}
+
+.oauth-google-btn--pending::before {
+  display: none;
+}
+
+@keyframes oauth-google-border-glow {
+  0%,
+  100% {
+    border-color: color-mix(in oklch, var(--primary) 38%, var(--border));
+    box-shadow:
+      0 4px 14px color-mix(in oklch, var(--primary) 12%, transparent),
+      0 0 0 1px color-mix(in oklch, var(--primary) 22%, transparent);
+  }
+  50% {
+    border-color: color-mix(in oklch, var(--primary) 55%, var(--border));
+    box-shadow:
+      0 6px 20px color-mix(in oklch, var(--primary) 18%, transparent),
+      0 0 0 1px color-mix(in oklch, var(--primary) 32%, transparent);
+  }
+}
+
+.oauth-google-btn__icon-slot {
+  animation: oauth-google-icon-pop 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes oauth-google-icon-pop {
+  from {
+    transform: scale(0.82);
+    opacity: 0.65;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oauth-google-btn--emphasize {
+    animation: none;
+  }
+  .oauth-google-btn--emphasize::before {
+    display: none;
+  }
+  .oauth-google-btn__mark {
+    animation: none;
+    filter: none;
+  }
+  .oauth-google-btn--pending {
+    animation: none;
+  }
+  .oauth-google-btn__icon-slot {
+    animation: none;
+  }
+  .share-profile-dialog__link-field,
+  .share-profile-dialog__link-field::before,
+  .share-profile-dialog__share-cta {
+    animation: none !important;
+  }
+  .share-profile-dialog__link-field::before {
+    display: none;
+  }
+  .share-profile-open-btn--solid,
+  .share-profile-open-btn--solid::before,
+  .share-profile-open-btn--outline,
+  .share-profile-open-btn__icon {
+    animation: none !important;
+  }
+  .share-profile-open-btn--solid::before {
+    display: none;
+  }
+}
+
+/* Share profile dialog — copyable URL + Share link button emphasis */
+.share-profile-dialog__link-field {
+  position: relative;
+  isolation: isolate;
+  animation: share-dialog-url-shadow 3s ease-in-out infinite;
+}
+
+.share-profile-dialog__link-field::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    102deg,
+    transparent 38%,
+    color-mix(in oklch, var(--primary) 22%, transparent) 50%,
+    transparent 62%
+  );
+  background-size: 240% 100%;
+  animation: share-dialog-url-shine 5.5s ease-in-out infinite;
+  pointer-events: none;
+  opacity: 0.42;
+}
+
+@keyframes share-dialog-url-shadow {
+  0%,
+  100% {
+    box-shadow:
+      0 2px 10px color-mix(in oklch, var(--foreground) 7%, transparent),
+      inset 0 1px 0 color-mix(in oklch, var(--card) 65%, transparent);
+    border-color: color-mix(in oklch, var(--primary) 30%, var(--border));
+  }
+  50% {
+    box-shadow:
+      0 10px 28px color-mix(in oklch, var(--primary) 18%, transparent),
+      inset 0 1px 0 color-mix(in oklch, var(--card) 85%, transparent);
+    border-color: color-mix(in oklch, var(--primary) 52%, var(--border));
+  }
+}
+
+@keyframes share-dialog-url-shine {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -120% 0;
+  }
+}
+
+.share-profile-dialog__share-cta {
+  position: relative;
+  animation: share-dialog-cta-glow 3.2s ease-in-out infinite;
+}
+
+@keyframes share-dialog-cta-glow {
+  0%,
+  100% {
+    box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 5%, transparent);
+    border-color: color-mix(in oklch, var(--border) 100%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 6px 20px color-mix(in oklch, var(--primary) 16%, transparent),
+      0 0 0 1px color-mix(in oklch, var(--primary) 28%, var(--border));
+    border-color: color-mix(in oklch, var(--primary) 42%, var(--border));
+  }
+}
+
+/* Dashboard: Share profile buttons (open share dialog) */
+.share-profile-open-btn--solid {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  animation: share-profile-open-solid 3s ease-in-out infinite;
+}
+
+.share-profile-open-btn--solid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    color-mix(in oklch, var(--primary-foreground) 18%, transparent) 50%,
+    transparent 60%
+  );
+  background-size: 220% 100%;
+  animation: share-profile-open-shine 5s ease-in-out infinite;
+  pointer-events: none;
+  opacity: 0.28;
+}
+
+@keyframes share-profile-open-solid {
+  0%,
+  100% {
+    box-shadow:
+      0 2px 10px color-mix(in oklch, var(--primary) 28%, transparent),
+      0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow:
+      0 10px 28px color-mix(in oklch, var(--primary) 42%, transparent),
+      0 0 0 2px color-mix(in oklch, var(--primary-foreground) 12%, transparent);
+  }
+}
+
+@keyframes share-profile-open-shine {
+  0% {
+    background-position: 115% 0;
+  }
+  100% {
+    background-position: -115% 0;
+  }
+}
+
+.share-profile-open-btn__icon {
+  position: relative;
+  z-index: 1;
+  transform-origin: center;
+  animation: share-profile-open-plus 2.6s ease-in-out infinite;
+}
+
+@keyframes share-profile-open-plus {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  40% {
+    transform: scale(1.1) rotate(8deg);
+  }
+  55% {
+    transform: scale(1.1) rotate(8deg);
+  }
+}
+
+.share-profile-open-btn--outline {
+  position: relative;
+  animation: share-profile-open-outline 2.9s ease-in-out infinite;
+}
+
+@keyframes share-profile-open-outline {
+  0%,
+  100% {
+    box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 5%, transparent);
+    border-color: color-mix(in oklch, var(--border) 100%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 6px 20px color-mix(in oklch, var(--primary) 15%, transparent),
+      0 0 0 1px color-mix(in oklch, var(--primary) 26%, var(--border));
+    border-color: color-mix(in oklch, var(--primary) 38%, var(--border));
   }
 }
 

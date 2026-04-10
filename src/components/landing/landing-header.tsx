@@ -39,7 +39,7 @@ export function LandingHeader({ className }: { className?: string }) {
             {t("Features", "အင်္ဂါရပ်များ")}
           </a>
           <a href="/auth/sign-in#contact" className={navLink}>
-            {t("Contact", "ဆက်သွယ်ရန်")}
+            {t("About", "အကြောင်း")}
           </a>
           <Link href="/help" className={navLink}>
             {t("Help", "အကူအညီ")}
@@ -63,7 +63,7 @@ export function LandingHeader({ className }: { className?: string }) {
           {t("Features", "အင်္ဂါရပ်များ")}
         </a>
         <a href="/auth/sign-in#contact" className={navLink}>
-          {t("Contact", "ဆက်သွယ်ရန်")}
+          {t("About", "အကြောင်း")}
         </a>
         <Link href="/help" className={navLink}>
           {t("Help", "အကူအညီ")}

@@ -1,15 +1,15 @@
 "use client";
 
-import { Home, Mail } from "lucide-react";
+import { Home } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { getUnreadReceivedCountAction } from "@/app/dashboard/actions";
+import { InboxNotificationTrigger } from "@/components/common/inbox-notification-trigger";
 import { LanguageSwitcher } from "@/components/common/language-switcher";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
 import { useUiLanguage } from "@/components/providers/ui-language-provider";
 import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 type PublicProfileHeaderNavProps = {
   /** Unread received messages for the signed-in visitor (same as dashboard). */
@@ -53,13 +53,10 @@ export function PublicProfileHeaderNav({ unreadReceivedCount = 0 }: PublicProfil
       </Link>
 
       <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:gap-2.5">
-        <Link
+        <InboxNotificationTrigger
+          unreadCount={unreadCount}
           href="/dashboard#dashboard-interaction-feed"
-          className={cn(
-            buttonVariants({ variant: "ghost", size: "icon" }),
-            "relative size-9 shrink-0 hover:bg-muted/60",
-          )}
-          aria-label={
+          ariaLabel={
             unreadCount > 0
               ? t(
                   `${unreadCount} unread message${unreadCount === 1 ? "" : "s"}`,
@@ -75,14 +72,7 @@ export function PublicProfileHeaderNav({ unreadReceivedCount = 0 }: PublicProfil
                 )
               : t("Received messages", "လက်ခံမှု စာရင်း")
           }
-        >
-          <Mail className="size-4 text-muted-foreground" strokeWidth={2} aria-hidden />
-          {unreadCount > 0 ? (
-            <span className="absolute -right-0.5 -top-0.5 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-destructive px-1 text-[0.65rem] font-bold leading-none text-destructive-foreground shadow-sm ring-2 ring-card">
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </span>
-          ) : null}
-        </Link>
+        />
         <LanguageSwitcher className="border-0 bg-transparent p-0 shadow-none ring-0" />
         <SignOutButton icon className="border-border" />
       </div>

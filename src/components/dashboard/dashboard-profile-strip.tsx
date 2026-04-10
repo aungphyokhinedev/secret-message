@@ -20,7 +20,7 @@ function extFromName(name: string) {
   return ext && ext.length <= 5 ? ext : "png";
 }
 
-/** Avatar + @username + email — sits outside the main dashboard card. */
+/** Avatar + username (truncated) — sits outside the main dashboard card. */
 export function DashboardProfileStrip({ currentUsername, currentAvatarUrl }: DashboardProfileStripProps) {
   const supabase = useSupabaseBrowser();
   const { t } = useUiLanguage();
@@ -87,10 +87,12 @@ export function DashboardProfileStrip({ currentUsername, currentAvatarUrl }: Das
     }
   }
 
+  const displayName = currentUsername.trim();
+
   return (
     <div className="min-w-0">
       <div className="flex items-center gap-3">
-        <div className="flex min-h-10 items-center gap-2.5">
+        <div className="flex min-h-10 min-w-0 max-w-full items-center gap-2.5">
           <Button
             type="button"
             variant="ghost"
@@ -111,8 +113,11 @@ export function DashboardProfileStrip({ currentUsername, currentAvatarUrl }: Das
             onChange={(e) => void onSelectAvatar(e.target.files?.[0] ?? null)}
             disabled={avatarPending}
           />
-          <span className="max-w-[min(200px,50vw)] truncate text-sm font-medium text-foreground">
-            @{currentUsername}
+          <span
+            className="min-w-0 max-w-[min(7rem,32vw)] truncate text-sm font-medium text-foreground sm:max-w-[9rem]"
+            title={displayName || undefined}
+          >
+            {displayName || "—"}
           </span>
         </div>
       </div>

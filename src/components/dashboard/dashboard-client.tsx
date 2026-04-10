@@ -38,6 +38,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Toggle } from "@/components/ui/toggle";
 import {
   Table,
   TableBody,
@@ -84,6 +85,51 @@ const TYPE_ICONS: Record<InteractionType, LucideIcon> = {
 
 const ALL_TYPES: InteractionType[] = ["water_splash", "black_soot", "food", "flower"];
 const PAGE_SIZE = 10;
+
+/** Summary metric cards — per-type gradients (Thingyan palette). */
+const TYPE_SUMMARY_STYLE: Record<
+  InteractionType,
+  {
+    card: string;
+    cardActive: string;
+    title: string;
+    count: string;
+    iconMuted: string;
+  }
+> = {
+  water_splash: {
+    card: "border-sky-300/55 bg-gradient-to-br from-sky-100 via-cyan-50 to-indigo-100/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] dark:border-sky-700/45 dark:from-sky-950/85 dark:via-cyan-950/55 dark:to-indigo-950/75 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
+    cardActive:
+      "border-sky-400/90 ring-1 ring-sky-400/50 ring-offset-1 ring-offset-background sm:ring-2 sm:ring-offset-2 dark:border-sky-500/70 dark:ring-sky-400/45",
+    title: "text-sky-900/85 dark:text-sky-100/95",
+    count: "text-sky-950 drop-shadow-sm dark:text-sky-50",
+    iconMuted: "text-sky-600/90 dark:text-sky-300/95",
+  },
+  black_soot: {
+    card: "border-slate-300/60 bg-gradient-to-br from-slate-100 via-zinc-100 to-neutral-300/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-zinc-600/50 dark:from-slate-950/90 dark:via-zinc-950/75 dark:to-neutral-950/85 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+    cardActive:
+      "border-violet-400/75 ring-1 ring-violet-500/45 ring-offset-1 ring-offset-background sm:ring-2 sm:ring-offset-2 dark:border-violet-500/55 dark:ring-violet-400/40",
+    title: "text-slate-800/90 dark:text-zinc-100/95",
+    count: "text-slate-950 drop-shadow-sm dark:text-zinc-50",
+    iconMuted: "text-slate-600/90 dark:text-zinc-400/95",
+  },
+  food: {
+    card: "border-amber-300/60 bg-gradient-to-br from-amber-100 via-orange-50 to-amber-200/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] dark:border-amber-700/45 dark:from-amber-950/88 dark:via-orange-950/65 dark:to-amber-900/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
+    cardActive:
+      "border-amber-400/90 ring-1 ring-amber-400/48 ring-offset-1 ring-offset-background sm:ring-2 sm:ring-offset-2 dark:border-amber-500/65 dark:ring-amber-400/42",
+    title: "text-amber-950/88 dark:text-amber-50/98",
+    count: "text-amber-950 drop-shadow-sm dark:text-amber-50",
+    iconMuted: "text-amber-700/90 dark:text-amber-300/95",
+  },
+  flower: {
+    card: "border-fuchsia-300/50 bg-gradient-to-br from-fuchsia-100 via-pink-50 to-rose-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] dark:border-fuchsia-800/45 dark:from-fuchsia-950/82 dark:via-pink-950/60 dark:to-rose-950/78 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
+    cardActive:
+      "border-fuchsia-400/85 ring-1 ring-fuchsia-500/45 ring-offset-1 ring-offset-background sm:ring-2 sm:ring-offset-2 dark:border-fuchsia-500/60 dark:ring-fuchsia-400/40",
+    title: "text-rose-900/88 dark:text-pink-50/96",
+    count: "text-rose-950 drop-shadow-sm dark:text-fuchsia-50",
+    iconMuted: "text-fuchsia-700/90 dark:text-fuchsia-300/95",
+  },
+};
 
 function formatInteractionTime(iso: string) {
   try {
@@ -207,12 +253,6 @@ export function DashboardClient({
   const rangeStart = typeFiltered.length === 0 ? 0 : (listPage - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(listPage * PAGE_SIZE, typeFiltered.length);
 
-  function toggleFilterType(type: InteractionType) {
-    setFilterType((prev) => (prev === type ? null : type));
-    setSelectedInteractionId(null);
-    setListPage(1);
-  }
-
   function changePage(next: number) {
     setListPage(Math.min(totalPages, Math.max(1, next)));
   }
@@ -296,11 +336,15 @@ export function DashboardClient({
               </h1>
               <Button
                 type="button"
-                className="h-10 w-full shrink-0 gap-2 rounded-lg px-4 sm:w-auto"
+                className={cn(
+                  "share-profile-open-btn--solid relative h-10 w-full shrink-0 gap-2 overflow-hidden rounded-lg px-4 sm:w-auto",
+                )}
                 onClick={() => window.dispatchEvent(new Event("secretgift:open-share-panel"))}
               >
-                <Plus className="size-4" aria-hidden />
-                {t("Share profile", "Profile မျှဝေရန်")}
+                <span className="relative z-[1] inline-flex items-center gap-2">
+                  <Plus className="share-profile-open-btn__icon size-4" aria-hidden />
+                  {t("Share profile", "Profile မျှဝေရန်")}
+                </span>
               </Button>
             </div>
 
@@ -410,7 +454,9 @@ export function DashboardClient({
                         type="button"
                         variant="outline"
                         onClick={() => window.dispatchEvent(new Event("secretgift:open-share-panel"))}
-                        className="h-9 gap-1.5 rounded-lg"
+                        className={cn(
+                          "share-profile-open-btn--outline h-9 gap-1.5 rounded-lg border-2 font-medium",
+                        )}
                       >
                         <Share2 className="h-4 w-4 shrink-0" aria-hidden />
                         {t("Share profile", "Profile မျှဝေရန်")}
@@ -420,52 +466,91 @@ export function DashboardClient({
                 </Card>
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+                <div
+                  className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-2.5"
+                  role="toolbar"
+                  aria-label={t("Filter by interaction type", "Interaction အမျိုးအစားဖြင့် စစ်ပါ")}
+                >
                     {ALL_TYPES.map((type) => {
                       const active = filterType === type;
                       const Icon = TYPE_ICONS[type];
+                      const palette = TYPE_SUMMARY_STYLE[type];
                       return (
-                        <Button
+                        <Toggle
                           key={type}
                           type="button"
-                          variant="ghost"
-                          onClick={() => toggleFilterType(type)}
-                          aria-pressed={active}
-                          className="h-auto min-h-0 w-full p-0 font-normal normal-case hover:bg-transparent"
+                          variant="outline"
+                          size="default"
+                          pressed={active}
+                          onPressedChange={(next) => {
+                            setFilterType(next ? type : null);
+                            setSelectedInteractionId(null);
+                            setListPage(1);
+                          }}
+                          className={cn(
+                            "h-auto min-h-0 w-full min-w-0 border-0 bg-transparent p-0 font-normal shadow-none",
+                            "hover:!bg-transparent aria-pressed:!bg-transparent data-[pressed]:!bg-transparent",
+                            "focus-visible:z-[1] focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                          )}
+                          aria-label={TYPE_META[type].label}
                         >
-                          <Card
-                            size="sm"
+                          <span
                             className={cn(
-                              "w-full gap-0 py-0 transition-colors",
-                              active
-                                ? "ring-2 ring-primary ring-offset-1 ring-offset-background bg-accent/55 shadow-none"
-                                : "shadow-none ring-1 ring-border bg-card hover:bg-muted/50",
+                              "flex w-full items-center gap-2 overflow-hidden rounded-lg border-2 border-transparent px-2.5 py-2 text-left transition-all duration-200 sm:gap-2.5 sm:px-3 sm:py-2.5",
+                              "hover:shadow-md hover:brightness-[1.02] dark:hover:brightness-110",
+                              palette.card,
+                              active &&
+                                cn("shadow-sm brightness-100 dark:brightness-100", palette.cardActive),
                             )}
                           >
-                              <CardHeader className="flex flex-row items-start justify-between space-y-0 px-3.5 pb-1.5 pt-3.5">
-                              <CardTitle className="text-left text-sm font-medium leading-tight text-muted-foreground">
-                                {TYPE_META[type].short}
-                              </CardTitle>
+                            <span className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
                               {active ? (
-                                <CardAction>
-                                  <span
-                                    className="inline-flex size-5 items-center justify-center rounded-full border-2 border-primary bg-background text-primary sm:size-6"
-                                    aria-hidden
-                                  >
-                                    <Check className="size-3 sm:size-3.5" strokeWidth={2.5} />
-                                  </span>
-                                </CardAction>
+                                <span
+                                  className={cn(
+                                    "inline-flex size-7 shrink-0 items-center justify-center rounded-md border bg-background/90 shadow-sm backdrop-blur-sm sm:size-8",
+                                    type === "water_splash" &&
+                                      "border-sky-500/80 text-sky-600 dark:border-sky-400 dark:text-sky-300",
+                                    type === "black_soot" &&
+                                      "border-violet-600/80 text-violet-700 dark:border-violet-400 dark:text-violet-300",
+                                    type === "food" &&
+                                      "border-amber-600/80 text-amber-700 dark:border-amber-400 dark:text-amber-300",
+                                    type === "flower" &&
+                                      "border-fuchsia-600/80 text-fuchsia-700 dark:border-fuchsia-400 dark:text-fuchsia-300",
+                                  )}
+                                  aria-hidden
+                                >
+                                  <Check className="size-3.5" strokeWidth={2.5} />
+                                </span>
                               ) : (
-                                <Icon className="size-3.5 text-muted-foreground sm:size-4" aria-hidden />
+                                <span
+                                  className={cn(
+                                    "inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-black/5 bg-background/40 dark:border-white/10",
+                                    palette.iconMuted,
+                                  )}
+                                  aria-hidden
+                                >
+                                  <Icon className="size-3.5 opacity-95 sm:size-4" />
+                                </span>
                               )}
-                            </CardHeader>
-                            <CardContent className="px-3.5 pb-4 pt-0">
-                              <p className="text-2xl font-bold tabular-nums leading-none text-foreground sm:text-3xl">
-                                {counts[type]}
-                              </p>
-                            </CardContent>
-                          </Card>
-                        </Button>
+                              <span
+                                className={cn(
+                                  "min-w-0 truncate text-[0.6875rem] font-semibold leading-tight tracking-tight sm:text-xs",
+                                  palette.title,
+                                )}
+                              >
+                                {TYPE_META[type].short}
+                              </span>
+                            </span>
+                            <span
+                              className={cn(
+                                "shrink-0 text-lg font-bold tabular-nums leading-none tracking-tight sm:text-xl",
+                                palette.count,
+                              )}
+                            >
+                              {counts[type]}
+                            </span>
+                          </span>
+                        </Toggle>
                       );
                     })}
                 </div>

@@ -1,8 +1,9 @@
 "use client";
 
-import { Mail, MoreVertical, Star } from "lucide-react";
+import { MoreVertical, Star } from "lucide-react";
 import { useState } from "react";
 
+import { InboxNotificationTrigger } from "@/components/common/inbox-notification-trigger";
 import { LanguageSwitcher } from "@/components/common/language-switcher";
 import { DashboardAccountDialog } from "@/components/dashboard/dashboard-account-dialog";
 import { DashboardProfileStrip } from "@/components/dashboard/dashboard-profile-strip";
@@ -56,13 +57,9 @@ export function DashboardHeader({
             >
               {t(`Today ${dailyUsed}/${dailyLimit}`, `ယနေ့ ${dailyUsed}/${dailyLimit}`)}
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="relative size-9 shrink-0 hover:bg-muted/60"
-              onClick={onInboxClick}
-              aria-label={
+            <InboxNotificationTrigger
+              unreadCount={unreadReceivedCount}
+              ariaLabel={
                 unreadReceivedCount > 0
                   ? t(
                       `${unreadReceivedCount} unread message${unreadReceivedCount === 1 ? "" : "s"}`,
@@ -78,14 +75,8 @@ export function DashboardHeader({
                     )
                   : t("Received messages", "လက်ခံမှု စာရင်း")
               }
-            >
-              <Mail className="size-4 text-muted-foreground" strokeWidth={2} aria-hidden />
-              {unreadReceivedCount > 0 ? (
-                <span className="absolute -right-0.5 -top-0.5 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-destructive px-1 text-[0.65rem] font-bold leading-none text-destructive-foreground shadow-sm ring-2 ring-card">
-                  {unreadReceivedCount > 99 ? "99+" : unreadReceivedCount}
-                </span>
-              ) : null}
-            </Button>
+              onClick={onInboxClick}
+            />
             <LanguageSwitcher className="border-0 bg-transparent p-0 shadow-none ring-0" />
             <Button
               type="button"
