@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -12,8 +13,11 @@ import {
   Frown,
   Droplets,
   Flower2,
+  Inbox,
   Plus,
+  SendHorizontal,
   Share2,
+  Trash2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -41,7 +45,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Muted } from "@/components/ui/typography";
+import { deleteSentInteractionAction } from "@/app/dashboard/actions";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/types/database";
 
@@ -77,25 +92,43 @@ function formatInteractionTime(iso: string) {
 
 export type DashboardClientProps = {
   items: InteractionRow[];
+  sentItems: InteractionRow[];
   senderById: Record<string, { username: string; avatar_url: string | null }>;
+  receiverById: Record<string, { username: string; avatar_url: string | null }>;
   currentUsername: string;
   userEmail: string;
   userAvatarUrl: string | null;
   notice?: string | null;
+  sentNotice?: string | null;
 };
 
 export function DashboardClient({
   items,
+  sentItems,
   senderById,
+  receiverById,
   currentUsername,
   userEmail,
   userAvatarUrl,
   notice,
+  sentNotice,
 }: DashboardClientProps) {
   const { t } = useUiLanguage();
+  const router = useRouter();
+  const [feedTab, setFeedTab] = useState<"received" | "sent">("received");
   const [filterType, setFilterType] = useState<InteractionType | null>(null);
   const [listPage, setListPage] = useState(1);
   const [selectedInteractionId, setSelectedInteractionId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleteConfirmForId, setDeleteConfirmForId] = useState<string | null>(null);
+
+  const activeItems = feedTab === "received" ? items : sentItems;
+
+  useEffect(() => {
+    setFilterType(null);
+    setListPage(1);
+    setSelectedInteractionId(null);
+  }, [feedTab]);
 
   const counts = useMemo(() => {
     const c: Record<InteractionType, number> = {
@@ -104,14 +137,14 @@ export function DashboardClient({
       food: 0,
       flower: 0,
     };
-    for (const row of items) c[row.type] += 1;
+    for (const row of activeItems) c[row.type] += 1;
     return c;
-  }, [items]);
+  }, [activeItems]);
 
   const typeFiltered = useMemo(() => {
-    if (!filterType) return items;
-    return items.filter((row) => row.type === filterType);
-  }, [items, filterType]);
+    if (!filterType) return activeItems;
+    return activeItems.filter((row) => row.type === filterType);
+  }, [activeItems, filterType]);
 
   const totalPages = Math.max(1, Math.ceil(typeFiltered.length / PAGE_SIZE));
 
@@ -122,7 +155,8 @@ export function DashboardClient({
   const pagedItems = typeFiltered.slice((listPage - 1) * PAGE_SIZE, listPage * PAGE_SIZE);
   const selectedInteraction = typeFiltered.find((row) => row.id === selectedInteractionId) ?? null;
 
-  const hasNoReceivedMessages = items.length === 0;
+  const hasNoMessagesInTab = activeItems.length === 0;
+  const activeNotice = feedTab === "received" ? notice : sentNotice;
   const rangeStart = typeFiltered.length === 0 ? 0 : (listPage - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(listPage * PAGE_SIZE, typeFiltered.length);
 
@@ -136,6 +170,29 @@ export function DashboardClient({
     setListPage(Math.min(totalPages, Math.max(1, next)));
   }
 
+  function openDeleteConfirm(interactionId: string) {
+    setDeleteConfirmForId(interactionId);
+  }
+
+  async function executeConfirmedDelete() {
+    const id = deleteConfirmForId;
+    if (!id) return;
+
+    setPendingDeleteId(id);
+    try {
+      const result = await deleteSentInteractionAction(id);
+      if (!result.ok) {
+        window.alert(result.error);
+        return;
+      }
+      setDeleteConfirmForId(null);
+      setSelectedInteractionId((prev) => (prev === id ? null : prev));
+      router.refresh();
+    } finally {
+      setPendingDeleteId(null);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-muted/40 text-foreground">
       <DashboardHeader
@@ -147,64 +204,138 @@ export function DashboardClient({
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <Card className="overflow-hidden rounded-xl border border-border bg-card shadow-sm ring-0">
           <div className="space-y-6 px-4 py-6 sm:px-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Online Thingyan
-              </p>
-              <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground">
-                {t("Received interactions", "လက်ခံထားသော အပြန်အလှန်များ")}
+          <div className="space-y-5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Online Thingyan
+            </p>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-[1.75rem]">
+                {t("Interactions", "အပြန်အလှန်များ")}
               </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {t(
-                  "Here's what friends sent you for Thingyan. Tap a metric to filter by type.",
-                  "သူငယ်ချင်းများ ပို့သော အပြန်အလှန်များ။ Type စစ်ရန် metric ကို နှိပ်ပါ။",
-                )}
-              </p>
+              <Button
+                type="button"
+                className="h-10 w-full shrink-0 gap-2 rounded-lg sm:w-auto"
+                onClick={() => window.dispatchEvent(new Event("secretgift:open-share-panel"))}
+              >
+                <Plus className="size-4" aria-hidden />
+                {t("Share profile", "Profile မျှဝေရန်")}
+              </Button>
             </div>
-            <Button
-              type="button"
-              className="shrink-0 gap-2 rounded-lg"
-              onClick={() => window.dispatchEvent(new Event("secretgift:open-share-panel"))}
+
+            <Tabs
+              value={feedTab}
+              onValueChange={(v) => setFeedTab(v as "received" | "sent")}
+              className="w-full min-w-0"
             >
-              <Plus className="size-4" aria-hidden />
-              {t("Share profile", "Profile မျှဝေရန်")}
-            </Button>
+              <TabsList
+                variant="default"
+                className="grid !h-auto min-h-12 w-full min-w-0 grid-cols-2 gap-1 rounded-xl border border-border/80 bg-muted/40 p-1 shadow-inner"
+              >
+                <TabsTrigger
+                  value="received"
+                  className={cn(
+                    "relative gap-2 rounded-lg px-2 py-2.5 text-sm font-semibold sm:min-h-11 sm:px-3",
+                    "data-active:bg-card data-active:text-foreground data-active:shadow-sm",
+                    "dark:data-active:bg-background/80",
+                  )}
+                >
+                  <Inbox className="size-4 shrink-0 opacity-90" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate text-left">
+                    {t("Received", "လက်ခံမှု")}
+                  </span>
+                  <span
+                    className={cn(
+                      "inline-flex min-w-[1.75rem] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[0.6875rem] font-semibold tabular-nums",
+                      feedTab === "received"
+                        ? "bg-primary/15 text-primary dark:bg-primary/25"
+                        : "bg-background/60 text-muted-foreground dark:bg-background/20",
+                    )}
+                  >
+                    {items.length}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="sent"
+                  className={cn(
+                    "relative gap-2 rounded-lg px-2 py-2.5 text-sm font-semibold sm:min-h-11 sm:px-3",
+                    "data-active:bg-card data-active:text-foreground data-active:shadow-sm",
+                    "dark:data-active:bg-background/80",
+                  )}
+                >
+                  <SendHorizontal className="size-4 shrink-0 opacity-90" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate text-left">
+                    {t("Sent", "ပို့မှု")}
+                  </span>
+                  <span
+                    className={cn(
+                      "inline-flex min-w-[1.75rem] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[0.6875rem] font-semibold tabular-nums",
+                      feedTab === "sent"
+                        ? "bg-primary/15 text-primary dark:bg-primary/25"
+                        : "bg-background/60 text-muted-foreground dark:bg-background/20",
+                    )}
+                  >
+                    {sentItems.length}
+                  </span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            <p className="w-full text-sm leading-relaxed text-muted-foreground">
+              {feedTab === "received"
+                ? t(
+                    "Here's what friends sent you for Thingyan. Tap a metric to filter by type.",
+                    "သူငယ်ချင်းများ ပို့သော အပြန်အလှန်များ။ Type စစ်ရန် metric ကို နှိပ်ပါ။",
+                  )
+                : t(
+                    "Your outgoing splashes, gifts, and messages. Tap a metric to filter by type.",
+                    "သင်ပို့သော ရေပက်၊ လက်ဆောင်နှင့် စာများ။ Type စစ်ရန် metric ကို နှိပ်ပါ။",
+                  )}
+            </p>
           </div>
 
           <div className="space-y-6">
-            {notice ? (
+            {activeNotice ? (
               <Card className="border-amber-500/25 bg-amber-500/5 py-3 shadow-none ring-0">
                 <CardContent className="py-0 text-xs leading-relaxed text-foreground">
-                  {notice}
+                  {activeNotice}
                 </CardContent>
               </Card>
             ) : null}
 
-            {hasNoReceivedMessages ? (
+            {hasNoMessagesInTab ? (
                 <Card className="border-border bg-muted/40 shadow-none ring-0">
                   <CardHeader>
                     <CardTitle className="font-heading text-base">
-                      {t("No gifts or messages yet", "လက်ဆောင်နှင့် စာများ မရရှိသေးပါ")}
+                      {feedTab === "received"
+                        ? t("No gifts or messages yet", "လက်ဆောင်နှင့် စာများ မရရှိသေးပါ")
+                        : t("Nothing sent yet", "မည်သည့်အရာမျှ မပို့ရသေးပါ")}
                     </CardTitle>
                     <CardDescription className="text-sm leading-relaxed">
-                      {t(
-                        "Share your profile link so friends can open your page and send splashes, gifts, and messages.",
-                        "သင့် profile link ကို မျှဝေပါ။ သူငယ်ချင်းများက ရေပက်၊ လက်ဆောင်နှင့် စာများ ပို့နိုင်ပါသည်။",
-                      )}
+                      {feedTab === "received"
+                        ? t(
+                            "Share your profile link so friends can open your page and send splashes, gifts, and messages.",
+                            "သင့် profile link ကို မျှဝေပါ။ သူငယ်ချင်းများက ရေပက်၊ လက်ဆောင်နှင့် စာများ ပို့နိုင်ပါသည်။",
+                          )
+                        : t(
+                            "Open a friend's profile link while signed in, choose a splash or gift, add a message, and send. Sent items will appear here.",
+                            "သူငယ်ချင်း၏ profile လင့်ကို ဝင်ထားစဉ် ဖွင့်ပြီး ရေပက် သို့မဟုတ် လက်ဆောင်ရွေးကာ စာရေးပို့ပါ။ ပို့ထားသည်များ ဤနေရာတွင် ပေါ်လာပါမည်။",
+                          )}
                     </CardDescription>
                   </CardHeader>
-                  <CardFooter className="border-0 bg-transparent pt-0">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => window.dispatchEvent(new Event("secretgift:open-share-panel"))}
-                      className="gap-2 rounded-lg"
-                    >
-                      <Share2 className="h-4 w-4 shrink-0" aria-hidden />
-                      {t("Share profile", "Profile မျှဝေရန်")}
-                    </Button>
-                  </CardFooter>
+                  {feedTab === "received" ? (
+                    <CardFooter className="border-0 bg-transparent pt-0">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => window.dispatchEvent(new Event("secretgift:open-share-panel"))}
+                        className="gap-2 rounded-lg"
+                      >
+                        <Share2 className="h-4 w-4 shrink-0" aria-hidden />
+                        {t("Share profile", "Profile မျှဝေရန်")}
+                      </Button>
+                    </CardFooter>
+                  ) : null}
                 </Card>
             ) : (
               <>
@@ -262,7 +393,12 @@ export function DashboardClient({
                         {t("Interaction feed", "Interaction စာရင်း")}
                       </p>
                       <Muted className="text-xs sm:text-right">
-                        {t("Click a row to open the animation.", "Animation ဖွင့်ရန် အတန်းကို နှိပ်ပါ။")}
+                        {feedTab === "sent"
+                          ? t(
+                              "Click a row for details. Use delete to remove from your sent list.",
+                              "အသေးစိတ် အတွက် အတန်းကို နှိပ်ပါ။ ပို့မှု စာရင်းမှ ဖျက်ရန် ဖျက်ခလုတ်သုံးပါ။",
+                            )
+                          : t("Click a row to open the animation.", "Animation ဖွင့်ရန် အတန်းကို နှိပ်ပါ။")}
                       </Muted>
                     </div>
 
@@ -271,18 +407,41 @@ export function DashboardClient({
                         type={selectedInteraction.type}
                         open
                         onClose={() => setSelectedInteractionId(null)}
-                        receiverUsername={currentUsername}
+                        receiverUsername={
+                          feedTab === "sent" &&
+                          selectedInteraction.receiver_id &&
+                          receiverById[selectedInteraction.receiver_id]
+                            ? receiverById[selectedInteraction.receiver_id].username
+                            : currentUsername
+                        }
                         senderLabel={
-                          selectedInteraction.sender_id && senderById[selectedInteraction.sender_id]
-                            ? `@${senderById[selectedInteraction.sender_id].username}`
-                            : "Someone"
+                          feedTab === "received"
+                            ? selectedInteraction.sender_id && senderById[selectedInteraction.sender_id]
+                              ? `@${senderById[selectedInteraction.sender_id].username}`
+                              : t("Someone", "တစ်စုံတစ်ယောက်")
+                            : selectedInteraction.receiver_id && receiverById[selectedInteraction.receiver_id]
+                              ? `@${receiverById[selectedInteraction.receiver_id].username}`
+                              : t("Someone", "တစ်စုံတစ်ယောက်")
                         }
                         senderAvatarUrl={
-                          selectedInteraction.sender_id && senderById[selectedInteraction.sender_id]
-                            ? senderById[selectedInteraction.sender_id].avatar_url
-                            : null
+                          feedTab === "received"
+                            ? selectedInteraction.sender_id && senderById[selectedInteraction.sender_id]
+                              ? senderById[selectedInteraction.sender_id].avatar_url
+                              : null
+                            : selectedInteraction.receiver_id && receiverById[selectedInteraction.receiver_id]
+                              ? receiverById[selectedInteraction.receiver_id].avatar_url
+                              : null
                         }
                         message={selectedInteraction.message ?? ""}
+                        onDeleteSent={
+                          feedTab === "sent"
+                            ? () => openDeleteConfirm(selectedInteraction.id)
+                            : undefined
+                        }
+                        deleteSentPending={
+                          pendingDeleteId === selectedInteraction.id ||
+                          deleteConfirmForId === selectedInteraction.id
+                        }
                       />
                 ) : null}
 
@@ -292,7 +451,9 @@ export function DashboardClient({
                           <TableHeader>
                             <TableRow className="hover:bg-transparent">
                               <TableHead className="w-[200px] pl-4">
-                                {t("Sender", "ပို့သူ")}
+                                {feedTab === "received"
+                                  ? t("Sender", "ပို့သူ")
+                                  : t("Recipient", "လက်ခံသူ")}
                               </TableHead>
                               <TableHead className="w-[100px]">{t("Type", "အမျိုးအစား")}</TableHead>
                               <TableHead className="min-w-[200px]">
@@ -301,12 +462,20 @@ export function DashboardClient({
                               <TableHead className="w-[180px] text-right pr-4">
                                 {t("Time", "အချိန်")}
                               </TableHead>
+                              {feedTab === "sent" ? (
+                                <TableHead className="w-14 text-center pr-4">
+                                  <span className="sr-only">{t("Actions", "လုပ်ဆောင်ချက်များ")}</span>
+                                </TableHead>
+                              ) : null}
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {pagedItems.length === 0 ? (
                               <TableRow className="hover:bg-transparent">
-                                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                                <TableCell
+                                  colSpan={feedTab === "sent" ? 5 : 4}
+                                  className="h-24 text-center text-muted-foreground"
+                                >
                                   {t(
                                     "No interactions match your filters.",
                                     "စစ်ထုတ်ချက်နှင့် ကိုက်ညီသော interaction မရှိပါ။",
@@ -315,8 +484,17 @@ export function DashboardClient({
                               </TableRow>
                             ) : (
                               pagedItems.map((row) => {
-                                const sender = row.sender_id ? senderById[row.sender_id] : undefined;
-                                const who = sender ? `@${sender.username}` : "Someone";
+                                const peer =
+                                  feedTab === "received"
+                                    ? row.sender_id
+                                      ? senderById[row.sender_id]
+                                      : undefined
+                                    : receiverById[row.receiver_id];
+                                const who = peer
+                                  ? `@${peer.username}`
+                                  : feedTab === "received"
+                                    ? t("Someone", "တစ်စုံတစ်ယောက်")
+                                    : t("Unknown", "မသိရှိရ");
                                 const body = (row.message ?? "").trim();
                                 return (
                                   <TableRow
@@ -327,7 +505,7 @@ export function DashboardClient({
                                     <TableCell className="pl-4">
                                       <div className="flex items-center gap-2">
                                         <Avatar
-                                          src={sender?.avatar_url ?? null}
+                                          src={peer?.avatar_url ?? null}
                                           size={32}
                                           className="size-8 shrink-0 ring-1 ring-border"
                                         />
@@ -348,6 +526,29 @@ export function DashboardClient({
                                     <TableCell className="pr-4 text-right text-xs tabular-nums text-muted-foreground">
                                       <time dateTime={row.created_at}>{formatInteractionTime(row.created_at)}</time>
                                     </TableCell>
+                                    {feedTab === "sent" ? (
+                                      <TableCell
+                                        className="w-14 pr-2 text-center"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          className="size-9 text-muted-foreground hover:text-destructive"
+                                          disabled={
+                                            pendingDeleteId === row.id || deleteConfirmForId === row.id
+                                          }
+                                          aria-label={t("Delete from sent history", "ပို့မှု မှတ်တမ်းမှ ဖျက်ရန်")}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            openDeleteConfirm(row.id);
+                                          }}
+                                        >
+                                          <Trash2 className="size-4" aria-hidden />
+                                        </Button>
+                                      </TableCell>
+                                    ) : null}
                                   </TableRow>
                                 );
                               })
@@ -422,6 +623,43 @@ export function DashboardClient({
           </div>
         </Card>
       </main>
+
+      <AlertDialog
+        open={deleteConfirmForId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteConfirmForId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("Delete this send?", "ဤပို့မှုကို ဖျက်မလား?")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                "This removes the interaction from your sent list and from the recipient’s feed if they had not refreshed yet. This cannot be undone.",
+                "သင့် ပို့မှု စာရင်းမှ ဖယ်ရှားပြီး လက်ခံသူ၏ ဖိဒ်မှလည်း ဖယ်ရှားပါမည်။ ပြန်မရပါ။",
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button" className="w-full sm:w-auto">
+              {t("Cancel", "ပယ်ဖျက်")}
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              className="w-full sm:w-auto"
+              disabled={pendingDeleteId !== null}
+              onClick={() => void executeConfirmedDelete()}
+            >
+              {pendingDeleteId !== null
+                ? t("Deleting…", "ဖျက်နေသည်…")
+                : t("Delete", "ဖျက်ရန်")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

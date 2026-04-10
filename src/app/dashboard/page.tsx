@@ -92,15 +92,62 @@ export default async function DashboardPage() {
     { username: string; avatar_url: string | null }
   >;
 
+  const { data: sentRows, error: sentError } = await supabase
+    .from("interactions_feed")
+    .select("id, sender_id, receiver_id, type, message, created_at")
+    .eq("sender_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  let sentFeed = sentRows ?? [];
+  let sentNotice: string | null = null;
+
+  if (sentError) {
+    const { data: rawSent, error: rawSentError } = await supabase
+      .from("interactions")
+      .select("id, sender_id, receiver_id, type, message, created_at")
+      .eq("sender_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (rawSentError) {
+      sentFeed = [];
+      sentNotice = `Could not load sent history: ${sentError.message}. Re-run supabase/schema.sql if needed.`;
+    } else {
+      sentFeed = rawSent ?? [];
+    }
+  }
+
+  const receiverIds = [...new Set(sentFeed.map((r) => r.receiver_id))];
+  const receiverById = new Map<string, { username: string; avatar_url: string | null }>();
+  if (receiverIds.length > 0) {
+    const { data: receivers } = await supabase
+      .from("profiles")
+      .select("id, username, avatar_url")
+      .in("id", receiverIds);
+
+    for (const r of receivers ?? []) {
+      receiverById.set(r.id, { username: r.username, avatar_url: r.avatar_url });
+    }
+  }
+
+  const receiverByIdRecord = Object.fromEntries(receiverById) as Record<
+    string,
+    { username: string; avatar_url: string | null }
+  >;
+
   return (
     <>
       <DashboardClient
         items={feed}
+        sentItems={sentFeed}
         senderById={senderByIdRecord}
+        receiverById={receiverByIdRecord}
         currentUsername={username}
         userEmail={user.email ?? ""}
         userAvatarUrl={myProfile?.avatar_url ?? null}
         notice={feedNotice}
+        sentNotice={sentNotice}
       />
       <ShareCard username={username} />
     </>

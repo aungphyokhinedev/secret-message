@@ -164,7 +164,12 @@ export type Database = {
         ];
       };
     };
-    Functions: Record<string, never>;
+    Functions: {
+      delete_own_sent_interaction: {
+        Args: { p_id: string };
+        Returns: boolean;
+      };
+    };
     Enums: {
       interaction_type: "water_splash" | "black_soot" | "food" | "flower";
     };

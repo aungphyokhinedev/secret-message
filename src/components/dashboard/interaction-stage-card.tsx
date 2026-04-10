@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, RotateCcw } from "lucide-react";
+import { Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,9 @@ type InteractionStageCardProps = {
   senderLabel: string;
   senderAvatarUrl: string | null;
   message: string;
+  /** When set, show delete control for the sender’s own outgoing interaction. */
+  onDeleteSent?: () => void;
+  deleteSentPending?: boolean;
 };
 
 const TYPE_LABEL: Record<InteractionType, string> = {
@@ -52,6 +55,8 @@ export function InteractionStageCard({
   senderLabel,
   senderAvatarUrl,
   message,
+  onDeleteSent,
+  deleteSentPending = false,
 }: InteractionStageCardProps) {
   const { t } = useUiLanguage();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -360,6 +365,23 @@ export function InteractionStageCard({
             </CardContent>
           </Card>
         </div>
+
+        {onDeleteSent ? (
+          <div className="border-t border-border px-5 py-4 sm:px-6">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deleteSentPending}
+              className="w-full gap-2 border-destructive/35 text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-destructive/50 dark:hover:bg-destructive/20"
+              onClick={() => onDeleteSent()}
+            >
+              <Trash2 className="size-4 shrink-0" aria-hidden />
+              {deleteSentPending
+                ? t("Deleting…", "ဖျက်နေသည်…")
+                : t("Delete from sent history", "ပို့မှု မှတ်တမ်းမှ ဖျက်ရန်")}
+            </Button>
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   );

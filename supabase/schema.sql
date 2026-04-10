@@ -135,6 +135,44 @@ for select
 to authenticated
 using (auth.uid() = sender_id or auth.uid() = receiver_id);
 
+-- Senders can remove their own outgoing interactions from both feeds.
+drop policy if exists "users can delete own sent interactions" on public.interactions;
+create policy "users can delete own sent interactions"
+on public.interactions
+for delete
+to authenticated
+using (auth.uid() = sender_id);
+
+-- Direct DELETE from the client often fails if `authenticated` lacks table privilege or FORCE RLS
+-- blocks the role. Use this RPC instead: runs as definer, enforces sender in SQL only.
+create or replace function public.delete_own_sent_interaction(p_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n int;
+begin
+  if p_id is null then
+    return false;
+  end if;
+  -- Tight filter; row_security off avoids privilege/RLS mismatch for API roles.
+  set local row_security = off;
+  delete from public.interactions
+  where id = p_id
+    and sender_id = auth.uid();
+  get diagnostics n = row_count;
+  return n > 0;
+end;
+$$;
+
+revoke all on function public.delete_own_sent_interaction(uuid) from public;
+grant execute on function public.delete_own_sent_interaction(uuid) to authenticated;
+
+-- Optional: allow direct table deletes when privileges are set up correctly.
+grant delete on table public.interactions to authenticated;
+
 create or replace view public.interactions_feed as
 select
   i.id,
