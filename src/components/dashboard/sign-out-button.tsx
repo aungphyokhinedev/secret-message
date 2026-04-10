@@ -3,10 +3,20 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { LogOut } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import { useSupabaseBrowser } from "@/components/providers/supabase-browser-provider";
 import { useUiLanguage } from "@/components/providers/ui-language-provider";
+import { cn } from "@/lib/utils";
 
-export function SignOutButton() {
+type SignOutButtonProps = {
+  className?: string;
+  /** Compact icon-only button (e.g. dashboard toolbar). */
+  icon?: boolean;
+};
+
+export function SignOutButton({ className = "", icon = false }: SignOutButtonProps) {
   const router = useRouter();
   const supabase = useSupabaseBrowser();
   const { t } = useUiLanguage();
@@ -19,13 +29,34 @@ export function SignOutButton() {
     router.refresh();
   }
 
+  const label = t("Sign Out", "ထွက်ရန်");
+
+  if (icon) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        onClick={onSignOut}
+        disabled={loading}
+        className={cn("size-9 shrink-0 rounded-full", className)}
+        title={loading ? t("Signing out...", "ထွက်နေသည်...") : label}
+        aria-label={label}
+      >
+        <LogOut className="size-4" aria-hidden />
+      </Button>
+    );
+  }
+
   return (
-    <button
+    <Button
+      type="button"
+      variant="outline"
       onClick={onSignOut}
       disabled={loading}
-      className="rounded-full border border-indigo-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+      className={cn("rounded-full", className)}
     >
-      {loading ? t("Signing out...", "ထွက်နေသည်...") : t("Sign Out", "ထွက်ရန်")}
-    </button>
+      {loading ? t("Signing out...", "ထွက်နေသည်...") : label}
+    </Button>
   );
 }

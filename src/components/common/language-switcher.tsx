@@ -1,34 +1,40 @@
 "use client";
 
 import { useUiLanguage } from "@/components/providers/ui-language-provider";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { cn } from "@/lib/utils";
 
 type LanguageSwitcherProps = {
-  compact?: boolean;
+  className?: string;
 };
 
-export function LanguageSwitcher({ compact = false }: LanguageSwitcherProps) {
+export function LanguageSwitcher({ className = "" }: LanguageSwitcherProps) {
   const { language, setLanguage } = useUiLanguage();
   return (
-    <div className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-white/90 p-1 shadow-sm">
-      {!compact ? <span className="px-2 text-xs text-slate-500">Lang</span> : null}
-      <button
-        type="button"
-        onClick={() => setLanguage("en")}
-        className={`rounded-full px-3 py-1 text-xs font-medium ${
-          language === "en" ? "bg-indigo-500 text-white" : "text-slate-600 hover:bg-indigo-50"
-        }`}
+    <ToggleGroup
+      multiple={false}
+      value={[language]}
+      onValueChange={(next) => {
+        const v = next[0];
+        if (v === "en" || v === "my") setLanguage(v);
+      }}
+      spacing={0}
+      variant="outline"
+      size="sm"
+      className={cn("rounded-full border border-border bg-muted/50 p-1", className)}
+    >
+      <ToggleGroupItem
+        value="en"
+        className="rounded-full px-3 py-1 text-xs font-medium data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
       >
         EN
-      </button>
-      <button
-        type="button"
-        onClick={() => setLanguage("my")}
-        className={`rounded-full px-3 py-1 text-xs font-medium ${
-          language === "my" ? "bg-indigo-500 text-white" : "text-slate-600 hover:bg-indigo-50"
-        }`}
+      </ToggleGroupItem>
+      <ToggleGroupItem
+        value="my"
+        className="rounded-full px-3 py-1 text-xs font-medium data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
       >
         မြန်မာ
-      </button>
-    </div>
+      </ToggleGroupItem>
+    </ToggleGroup>
   );
 }

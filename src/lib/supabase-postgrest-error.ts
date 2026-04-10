@@ -10,7 +10,7 @@ export function formatSupabasePostgrestError(message: string): string {
   ) {
     return [
       "The linked Supabase project does not have the app tables yet (e.g. public.messages).",
-      "In Supabase: SQL → New query → paste and run the full contents of supabase/schema.sql from this repo, then retry.",
+      "In Supabase: SQL → New query → paste and run supabase/schema.sql from this repo (entire file), then retry.",
     ].join(" ");
   }
   return message;

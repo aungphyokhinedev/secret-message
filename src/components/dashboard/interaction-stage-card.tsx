@@ -1,10 +1,22 @@
 "use client";
 
-import { toPng } from "html-to-image";
+import { Loader2, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Avatar } from "@/components/common/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useUiLanguage } from "@/components/providers/ui-language-provider";
+import { profileInitialsFromLabel } from "@/lib/profile-initials";
+import { cn } from "@/lib/utils";
 import type { Database } from "@/types/database";
 
 type InteractionType = Database["public"]["Enums"]["interaction_type"];
@@ -26,24 +38,30 @@ const TYPE_LABEL: Record<InteractionType, string> = {
   flower: "Flower gift",
 };
 
+/** After last animation frame, delay (ms) before cross-fading to the message. */
+const REVEAL_DELAY_MS = 380;
+
+/** Message layer exit duration (ms) before replay restarts the sprite — keep in sync with CSS transition. */
+const MESSAGE_OUT_MS = 420;
+
 export function InteractionStageCard({
   open,
   onClose,
   type,
-  receiverUsername,
+  receiverUsername: _receiverUsername,
   senderLabel,
   senderAvatarUrl,
   message,
 }: InteractionStageCardProps) {
   const { t } = useUiLanguage();
-  const stageRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [shareStatus, setShareStatus] = useState<string | null>(null);
+  const revealTimerRef = useRef<number | null>(null);
   const [sheetStatus, setSheetStatus] = useState<"loading" | "ready" | "missing">("loading");
-  const [animationEnded, setAnimationEnded] = useState(false);
   const [replayToken, setReplayToken] = useState(0);
+  /** `animation` = sprite playing in panel; `message` = message visible after animation ends. */
+  const [panelView, setPanelView] = useState<"animation" | "message">("animation");
+  /** True while the message plays its exit animation before replay. */
+  const [isMessageLeaving, setIsMessageLeaving] = useState(false);
 
   const safeMessage = useMemo(() => {
     const trimmed = message.trim();
@@ -51,62 +69,32 @@ export function InteractionStageCard({
   }, [message, t]);
 
   useEffect(() => {
+    if (sheetStatus === "missing") {
+      setPanelView("message");
+    }
+  }, [sheetStatus]);
+
+  useEffect(() => {
+    if (panelView === "animation") {
+      setIsMessageLeaving(false);
+    }
+  }, [panelView]);
+
+  useEffect(() => {
+    if (open) {
+      setIsMessageLeaving(false);
+    }
+  }, [open]);
+
+  useEffect(() => {
     if (!open) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
 
-    let rafId = 0;
     let cancelled = false;
-    let hasMarkedEnd = false;
+    let waitCanvasRaf = 0;
+    let animRaf = 0;
+    let waitAttempts = 0;
+    const maxWaitAttempts = 90;
 
-    const render = (sheet: HTMLImageElement, time: number, runStartMs: number) => {
-      const startDelayMs = 2000;
-      const fps = 4;
-      const frameCount = 16;
-      const frameDurationMs = 1000 / fps;
-      const elapsedSinceRunStart = time - runStartMs;
-      const effectiveTime = Math.max(0, elapsedSinceRunStart - startDelayMs);
-      const frameIndex = Math.min(
-        frameCount - 1,
-        Math.floor(effectiveTime / frameDurationMs),
-      );
-      const col = frameIndex % 4;
-      const row = Math.floor(frameIndex / 4);
-      const w = canvas.width;
-      const h = canvas.height;
-      const frameW = Math.floor(sheet.width / 4);
-      const frameH = Math.floor(sheet.height / 4);
-
-      ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = "rgba(2, 6, 23, 0.35)";
-      ctx.fillRect(0, 0, w, h);
-
-      ctx.imageSmoothingEnabled = true;
-      ctx.drawImage(
-        sheet,
-        col * frameW,
-        row * frameH,
-        frameW,
-        frameH,
-        0,
-        0,
-        w,
-        h,
-      );
-
-      if (frameIndex >= frameCount - 1) {
-        if (!hasMarkedEnd) {
-          hasMarkedEnd = true;
-          setAnimationEnded(true);
-        }
-      }
-
-      if (frameIndex < frameCount - 1) {
-        rafId = window.requestAnimationFrame((nextTime) => render(sheet, nextTime, runStartMs));
-      }
-    };
     const candidates = [
       `/img/${type}.png`,
       `/img/${type}.webp`,
@@ -114,204 +102,265 @@ export function InteractionStageCard({
       `/img/${type}.jpeg`,
     ];
 
-    async function loadFirstAvailable() {
-      setSheetStatus("loading");
-      setAnimationEnded(false);
-      for (const src of candidates) {
-        try {
-          const img = new Image();
-          await new Promise<void>((resolve, reject) => {
-            img.onload = () => resolve();
-            img.onerror = () => reject(new Error("Failed"));
-            img.src = src;
-          });
-          if (cancelled) return;
-          setSheetStatus("ready");
-          const runStartMs = performance.now();
-          const renderTick = (time: number) => {
-            if (cancelled) return;
-            render(img, time, runStartMs);
-          };
-          rafId = window.requestAnimationFrame(renderTick);
-          return;
-        } catch {
-          // try next extension
+    function startWhenCanvasReady() {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext("2d");
+      if (!canvas || !ctx) {
+        waitAttempts += 1;
+        if (!cancelled && waitAttempts < maxWaitAttempts) {
+          waitCanvasRaf = window.requestAnimationFrame(startWhenCanvasReady);
+        } else if (!cancelled) {
+          setSheetStatus("missing");
         }
+        return;
       }
-      if (!cancelled) setSheetStatus("missing");
+
+      let hasMarkedEnd = false;
+
+      const render = (sheet: HTMLImageElement, time: number, runStartMs: number) => {
+        if (cancelled) return;
+        const fps = 4;
+        const frameCount = 16;
+        const frameDurationMs = 1000 / fps;
+        const elapsedSinceRunStart = time - runStartMs;
+        const effectiveTime = Math.max(0, elapsedSinceRunStart);
+        const frameIndex = Math.min(
+          frameCount - 1,
+          Math.floor(effectiveTime / frameDurationMs),
+        );
+        const col = frameIndex % 4;
+        const row = Math.floor(frameIndex / 4);
+        const w = canvas.width;
+        const h = canvas.height;
+        const frameW = Math.floor(sheet.width / 4);
+        const frameH = Math.floor(sheet.height / 4);
+
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = "rgba(2, 6, 23, 0.35)";
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.imageSmoothingEnabled = true;
+        /** Pixels to shave off each frame cell in the sprite sheet (removes grid/border lines). */
+        const sourceTrim = Math.min(6, Math.max(0, Math.floor(Math.min(frameW, frameH) / 8) - 1));
+        /** Inset on the canvas when drawing (extra crop on screen). */
+        const destTrim = Math.min(4, Math.floor(Math.min(w, h) / 32));
+        const sx = col * frameW + sourceTrim;
+        const sy = row * frameH + sourceTrim;
+        const sw = Math.max(1, frameW - sourceTrim * 2);
+        const sh = Math.max(1, frameH - sourceTrim * 2);
+        const dw = w - destTrim * 2;
+        const dh = h - destTrim * 2;
+        try {
+          ctx.drawImage(sheet, sx, sy, sw, sh, destTrim, destTrim, dw, dh);
+        } catch {
+          if (!cancelled) setSheetStatus("missing");
+          return;
+        }
+
+        if (frameIndex >= frameCount - 1) {
+          if (!hasMarkedEnd) {
+            hasMarkedEnd = true;
+            revealTimerRef.current = window.setTimeout(() => {
+              if (!cancelled) setPanelView("message");
+            }, REVEAL_DELAY_MS);
+          }
+        }
+
+        if (frameIndex < frameCount - 1) {
+          animRaf = window.requestAnimationFrame((nextTime) => render(sheet, nextTime, runStartMs));
+        }
+      };
+
+      async function loadFirstAvailable() {
+        setSheetStatus("loading");
+        setPanelView("animation");
+        if (revealTimerRef.current) {
+          clearTimeout(revealTimerRef.current);
+          revealTimerRef.current = null;
+        }
+        for (const src of candidates) {
+          try {
+            const img = new Image();
+            img.decoding = "async";
+            await new Promise<void>((resolve, reject) => {
+              img.onload = () => resolve();
+              img.onerror = () => reject(new Error("Failed"));
+              img.src = src;
+            });
+            if (cancelled) return;
+            setSheetStatus("ready");
+            const runStartMs = performance.now();
+            const renderTick = (time: number) => {
+              if (cancelled) return;
+              render(img, time, runStartMs);
+            };
+            animRaf = window.requestAnimationFrame(renderTick);
+            return;
+          } catch {
+            // try next extension
+          }
+        }
+        if (!cancelled) setSheetStatus("missing");
+      }
+
+      void loadFirstAvailable();
     }
 
-    void loadFirstAvailable();
+    startWhenCanvasReady();
+
     return () => {
       cancelled = true;
-      window.cancelAnimationFrame(rafId);
+      if (revealTimerRef.current) {
+        clearTimeout(revealTimerRef.current);
+        revealTimerRef.current = null;
+      }
+      window.cancelAnimationFrame(waitCanvasRaf);
+      window.cancelAnimationFrame(animRaf);
     };
   }, [open, type, replayToken]);
 
-  async function makeBlob(): Promise<Blob> {
-    if (!stageRef.current) {
-      throw new Error("Stage is not ready.");
-    }
+  const animationLayerVisible = panelView === "animation" && sheetStatus !== "missing";
+  const messageShown = panelView === "message" || sheetStatus === "missing";
 
-    const dataUrl = await toPng(stageRef.current, { cacheBust: true, pixelRatio: 2 });
-    const response = await fetch(dataUrl);
-    return response.blob();
+  function scheduleReplay() {
+    if (isMessageLeaving || sheetStatus !== "ready") return;
+    setIsMessageLeaving(true);
+    window.setTimeout(() => {
+      setReplayToken((v) => v + 1);
+    }, MESSAGE_OUT_MS);
   }
-
-  async function downloadPng() {
-    setBusy(true);
-    setError(null);
-    setShareStatus(null);
-    try {
-      const blob = await makeBlob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `thingyan-${type}-${Date.now()}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
-      setShareStatus("Downloaded image.");
-    } catch {
-      setError(t("Could not create screenshot. Please try again.", "Screenshot မဖန်တီးနိုင်ပါ။ ထပ်ကြိုးစားပါ။"));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function shareImage() {
-    setBusy(true);
-    setError(null);
-    setShareStatus(null);
-    try {
-      const blob = await makeBlob();
-      const file = new File([blob], `thingyan-${type}.png`, { type: "image/png" });
-      const text = `${senderLabel} sent a ${TYPE_LABEL[type]} to @${receiverUsername}`;
-
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          title: "Thingyan interaction",
-          text,
-          files: [file],
-        });
-        setShareStatus(t("Shared successfully.", "မျှဝေပြီးပါပြီ။"));
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `thingyan-${type}-${Date.now()}.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-        setShareStatus(t("Web Share unavailable. Downloaded image instead.", "Web Share မရရှိပါ။ Download ပြုလုပ်ပြီးပါပြီ။"));
-      }
-    } catch {
-      setError(t("Could not share screenshot. Please try again.", "Screenshot မမျှဝေနိုင်ပါ။ ထပ်ကြိုးစားပါ။"));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-2 sm:p-3">
-      <section className="w-full max-w-lg rounded-2xl bg-white p-3 shadow-xl sm:p-4">
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-indigo-700">
-            {t("Let's see what you have received", "သင်လက်ခံရရှိထားတာတွေကို ကြည့်ရအောင်")}
-          </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-transparent text-indigo-700 transition hover:bg-indigo-50"
-            aria-label={t("Close", "ပိတ်ရန်")}
-            title={t("Close", "ပိတ်ရန်")}
-          >
-            <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
-              <path
-                fill="currentColor"
-                d="M18.3 5.71 12 12l6.3 6.29-1.41 1.41L10.59 13.4 4.29 19.7 2.88 18.29 9.17 12 2.88 5.71 4.29 4.29l6.3 6.3 6.3-6.3 1.41 1.42Z"
-              />
-            </svg>
-          </button>
-        </div>
-
-        <div ref={stageRef} className="overflow-hidden">
-          <div className="px-3 py-2 text-xs">
-            <div className="flex items-start gap-2 text-slate-700">
-              <Avatar src={senderAvatarUrl} size={30} className="h-8 w-8" />
-              <div className="max-w-[290px]">
-                <p className="font-medium">{senderLabel}</p>
-                <div className="relative mt-1 rounded-2xl rounded-tl-sm border border-indigo-100 bg-white/75 px-3 py-2 text-sm leading-5 text-slate-700 shadow-sm backdrop-blur-sm">
-                  {safeMessage}
-                  <span className="absolute -left-1 top-2 h-2.5 w-2.5 rotate-45 border-b border-l border-indigo-100 bg-white/75" />
-                </div>
-              </div>
-            </div>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+    >
+      <DialogContent
+        showCloseButton
+        className={cn(
+          "max-h-[min(92vh,800px)] gap-0 overflow-y-auto p-0 sm:max-w-lg",
+          "border border-border bg-card text-card-foreground shadow-sm ring-0",
+        )}
+      >
+        <DialogHeader className="gap-2 border-b border-border px-5 py-5 pr-12 text-left sm:px-6 sm:pr-14">
+          <div className="flex flex-wrap items-center gap-2">
+            <DialogTitle className="text-xl font-semibold tracking-tight text-foreground">
+              {t("Your gift", "လက်ဆောင်")}
+            </DialogTitle>
+            <Badge variant="secondary" className="font-normal">
+              {TYPE_LABEL[type]}
+            </Badge>
           </div>
+          <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+            {t(
+              "Watch the animation, then read their message. You can replay anytime.",
+              "Animation ကြည့်ပြီး စာကို ဖတ်ပါ။ ပြန်ဖွင့်ချင်ပါက ပြန်ဖွင့်နိုင်သည်။",
+            )}
+          </DialogDescription>
+        </DialogHeader>
 
-          <div className="relative mx-auto aspect-square w-full max-w-[200px]">
-            <canvas ref={canvasRef} width={720} height={720} className="h-full w-full" />
-            {sheetStatus !== "ready" ? (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/85 px-4 text-center text-xs text-slate-600">
-                {sheetStatus === "loading"
-                  ? t("Loading animation sheet...", "Animation sheet တင်နေသည်...")
-                  : t(
-                      `Missing sprite sheet: add /public/img/${type}.png (or .webp/.jpg/.jpeg) as a 4x4 sequence.`,
-                      `Sprite sheet မတွေ့ပါ: /public/img/${type}.png (သို့ .webp/.jpg/.jpeg) ကို 4x4 sequence အဖြစ် ထည့်ပါ။`,
-                    )}
+        <div className="border-b border-border bg-muted/30 px-5 py-5 sm:px-6">
+          <Card className="gap-0 overflow-hidden border border-border bg-card py-0 shadow-none ring-0">
+            <CardHeader className="flex flex-row items-center gap-3 space-y-0 p-4 pb-3">
+              <Avatar size="default" className="size-10 shrink-0">
+                {senderAvatarUrl ? (
+                  <AvatarImage src={senderAvatarUrl} alt={senderLabel} />
+                ) : null}
+                <AvatarFallback className="text-xs font-medium">
+                  {profileInitialsFromLabel(senderLabel)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <CardTitle className="truncate text-base font-semibold leading-tight text-foreground">
+                  {senderLabel}
+                </CardTitle>
+                <p className="mt-0.5 text-xs text-muted-foreground">{t("Message", "စာ")}</p>
               </div>
-            ) : null}
-            {sheetStatus === "ready" && animationEnded ? (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <button
-                  type="button"
-                  onClick={() => setReplayToken((v) => v + 1)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-indigo-200/70 bg-white/55 text-base text-indigo-700 backdrop-blur-sm transition hover:bg-white/75"
-                  aria-label="Replay animation"
+            </CardHeader>
+            <CardContent className="relative p-4 pt-0">
+              <div
+                className={cn(
+                  "relative min-h-[12rem] overflow-hidden rounded-xl border border-border bg-muted/40",
+                  "ring-1 ring-foreground/5",
+                )}
+              >
+                {/* Animation layer — fills panel while playing */}
+                <div
+                  className={cn(
+                    "absolute inset-0 z-20 flex items-center justify-center transition-all duration-500 ease-out",
+                    animationLayerVisible
+                      ? "opacity-100"
+                      : "pointer-events-none -translate-y-1 scale-[0.96] opacity-0 blur-[2px]",
+                  )}
+                  aria-hidden={!animationLayerVisible}
                 >
-                  ▶
-                </button>
+                  <div className="relative aspect-square h-full max-h-[min(12rem,50vw)] w-full max-w-[min(12rem,50vw)] overflow-hidden rounded-lg">
+                    <canvas
+                      ref={canvasRef}
+                      width={720}
+                      height={720}
+                      className="h-full w-full object-cover"
+                    />
+                    {sheetStatus !== "ready" ? (
+                      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg bg-background/95 px-3 text-center backdrop-blur-sm">
+                        {sheetStatus === "loading" ? (
+                          <>
+                            <Loader2 className="size-7 animate-spin text-primary" aria-hidden />
+                            <p className="text-xs font-medium text-foreground">
+                              {t("Loading animation…", "Animation တင်နေသည်…")}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-[0.7rem] leading-relaxed text-muted-foreground">
+                            {t(
+                              `Could not load animation. Add /public/img/${type}.png (or .webp/.jpg) as a 4×4 sprite sheet.`,
+                              `Animation မတင်နိုင်ပါ။ /public/img/${type}.png (သို့ .webp/.jpg) ကို 4×4 sprite sheet အဖြစ် ထည့်ပါ။`,
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                {/* Message layer — fades/slides in after animation; plays out before replay */}
+                <div
+                  className={cn(
+                    "relative z-10 flex min-h-[12rem] flex-col justify-center px-4 py-5 ease-out",
+                    !messageShown
+                      ? "pointer-events-none translate-y-4 opacity-0 duration-500"
+                      : isMessageLeaving
+                        ? "pointer-events-none translate-y-2 scale-[0.99] opacity-0 blur-[1px] duration-[420ms]"
+                        : "translate-y-0 opacity-100 duration-500",
+                  )}
+                >
+                  <p className="text-sm leading-relaxed text-foreground [text-wrap:pretty]">
+                    {safeMessage}
+                  </p>
+                </div>
+
+                {sheetStatus === "ready" && panelView === "message" && !isMessageLeaving && (
+                  <div className="absolute right-3 bottom-3 z-30">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="h-8 gap-1.5 rounded-full px-3 shadow-sm"
+                      onClick={scheduleReplay}
+                      aria-label={t("Replay animation", "Animation ပြန်ဖွင့်")}
+                    >
+                      <RotateCcw className="size-3.5" aria-hidden />
+                      {t("Replay", "ပြန်ဖွင့်")}
+                    </Button>
+                  </div>
+                )}
               </div>
-            ) : null}
-          </div>
+            </CardContent>
+          </Card>
         </div>
-
-        <div className="mt-3 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void shareImage()}
-            disabled={busy}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-indigo-200 bg-white text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
-            title={t("Share", "မျှဝေရန်")}
-            aria-label={t("Share", "မျှဝေရန်")}
-          >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
-              <path
-                fill="currentColor"
-                d="M18 16a3 3 0 0 0-2.4 1.2l-6.9-3.45a3.33 3.33 0 0 0 0-1.5L15.6 8.8A3 3 0 1 0 15 7a2.8 2.8 0 0 0 .06.58l-6.9 3.45a3 3 0 1 0 0 1.94l6.9 3.45A2.8 2.8 0 0 0 15 17a3 3 0 1 0 3-1Z"
-              />
-            </svg>
-          </button>
-          <button
-            type="button"
-            onClick={() => void downloadPng()}
-            disabled={busy}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-500 text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
-            title={t("Save screenshot", "Screenshot သိမ်းရန်")}
-            aria-label={t("Save screenshot", "Screenshot သိမ်းရန်")}
-          >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
-              <path
-                fill="currentColor"
-                d="M9 3 7.17 5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.17L15 3H9Zm3 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-1.8A3.2 3.2 0 1 0 12 9.8a3.2 3.2 0 0 0 0 6.4Z"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {shareStatus ? <p className="mt-2 text-xs text-emerald-600">{shareStatus}</p> : null}
-        {error ? <p className="mt-2 text-xs text-rose-500">{error}</p> : null}
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

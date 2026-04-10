@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
-import { LanguageSwitcher } from "@/components/common/language-switcher";
 import { SupabaseBrowserProvider } from "@/components/providers/supabase-browser-provider";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 import { UiLanguageProvider } from "@/components/providers/ui-language-provider";
 import { getSupabasePublicEnv } from "@/lib/supabase/env";
 import "./globals.css";
@@ -32,17 +32,15 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="flex min-h-full flex-col bg-background">
         <SupabaseBrowserProvider supabaseUrl={url} supabaseAnonKey={anonKey}>
           <UiLanguageProvider>
-            <div className="pointer-events-none fixed right-4 top-4 z-[60]">
-              <div className="pointer-events-auto">
-                <LanguageSwitcher compact />
-              </div>
-            </div>
-            {children}
+            <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+              {children}
+            </ThemeProvider>
           </UiLanguageProvider>
         </SupabaseBrowserProvider>
       </body>

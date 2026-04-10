@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 
 import { Avatar } from "@/components/common/avatar";
+import { Input } from "@/components/ui/input";
 import { useSupabaseBrowser } from "@/components/providers/supabase-browser-provider";
 
 type ProfileAvatarUploaderProps = {
@@ -96,13 +97,13 @@ export function ProfileAvatarUploader({ initialAvatarUrl }: ProfileAvatarUploade
         </div>
       </div>
       <div className="mt-3 flex items-center gap-3">
-        <input
+        <Input
           ref={inputRef}
           type="file"
           accept="image/*"
           onChange={(e) => void onSelect(e.target.files?.[0] ?? null)}
           disabled={pending}
-          className="block w-full text-xs text-slate-300 file:mr-3 file:rounded-full file:border-0 file:bg-cyan-400 file:px-3 file:py-1.5 file:font-semibold file:text-slate-950 hover:file:bg-cyan-300 disabled:opacity-60"
+          className="h-auto border-white/15 bg-black/20 py-2 text-xs text-slate-300 file:mr-3 file:rounded-full file:border-0 file:bg-cyan-400 file:px-3 file:py-1.5 file:font-semibold file:text-slate-950 hover:file:bg-cyan-300 disabled:opacity-60"
         />
       </div>
       {error ? <p className="mt-2 text-xs text-rose-300">{error}</p> : null}

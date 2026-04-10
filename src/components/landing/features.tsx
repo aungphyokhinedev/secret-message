@@ -1,5 +1,6 @@
 "use client";
 
+import { H3, Muted } from "@/components/ui/typography";
 import { useUiLanguage } from "@/components/providers/ui-language-provider";
 
 export function Features() {
@@ -35,8 +36,8 @@ export function Features() {
           key={feature.title}
           className="rounded-2xl border border-indigo-100 bg-white p-6 shadow-sm"
         >
-          <h2 className="text-xl font-semibold text-indigo-700">{feature.title}</h2>
-          <p className="mt-3 text-sm leading-6 text-slate-600">{feature.description}</p>
+          <H3 className="scroll-m-0 text-xl text-indigo-700">{feature.title}</H3>
+          <Muted className="mt-3 text-base leading-6 text-slate-600">{feature.description}</Muted>
         </article>
       ))}
     </section>

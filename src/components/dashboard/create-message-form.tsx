@@ -2,6 +2,17 @@
 
 import { FormEvent, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useSupabaseBrowser } from "@/components/providers/supabase-browser-provider";
 import { formatSupabasePostgrestError } from "@/lib/supabase-postgrest-error";
 import type { GiftType } from "@/types/app";
@@ -95,74 +106,90 @@ export function CreateMessageForm() {
       </p>
 
       <form onSubmit={onSubmit} className="mt-4 grid gap-4 md:grid-cols-2">
-        <label className="text-sm">
-          <span className="mb-1 block text-slate-200">Recipient email</span>
-          <input
+        <div className="text-sm">
+          <Label htmlFor="recipient-email" className="mb-1 block text-slate-200">
+            Recipient email
+          </Label>
+          <Input
+            id="recipient-email"
             type="email"
             required
             value={recipientEmail}
             onChange={(event) => setRecipientEmail(event.target.value)}
-            className="w-full rounded-lg border border-white/15 bg-black/20 px-3 py-2 outline-none ring-cyan-300 transition focus:ring"
+            className="h-auto border-white/15 bg-black/20 py-2 ring-cyan-300 focus-visible:ring"
           />
-        </label>
+        </div>
 
-        <label className="text-sm">
-          <span className="mb-1 block text-slate-200">Unlock at (optional)</span>
-          <input
+        <div className="text-sm">
+          <Label htmlFor="unlock-at" className="mb-1 block text-slate-200">
+            Unlock at (optional)
+          </Label>
+          <Input
+            id="unlock-at"
             type="datetime-local"
             value={unlockAt}
             onChange={(event) => setUnlockAt(event.target.value)}
-            className="w-full rounded-lg border border-white/15 bg-black/20 px-3 py-2 outline-none ring-cyan-300 transition focus:ring"
+            className="h-auto border-white/15 bg-black/20 py-2 ring-cyan-300 focus-visible:ring"
           />
-        </label>
+        </div>
 
-        <label className="text-sm md:col-span-2">
-          <span className="mb-1 block text-slate-200">Secret message</span>
-          <textarea
+        <div className="text-sm md:col-span-2">
+          <Label htmlFor="secret-message" className="mb-1 block text-slate-200">
+            Secret message
+          </Label>
+          <Textarea
+            id="secret-message"
             required
             value={message}
             onChange={(event) => setMessage(event.target.value)}
-            className="h-28 w-full rounded-lg border border-white/15 bg-black/20 px-3 py-2 outline-none ring-cyan-300 transition focus:ring"
+            className="min-h-28 border-white/15 bg-black/20 ring-cyan-300 focus-visible:ring"
             placeholder="Write your message"
           />
-        </label>
+        </div>
 
-        <label className="text-sm">
-          <span className="mb-1 block text-slate-200">Gift type</span>
-          <select
+        <div className="text-sm">
+          <Label className="mb-1 block text-slate-200">Gift type</Label>
+          <Select
             value={giftType}
-            onChange={(event) => setGiftType(event.target.value as GiftType)}
-            className="w-full rounded-lg border border-white/15 bg-black/20 px-3 py-2 outline-none ring-cyan-300 transition focus:ring"
+            onValueChange={(v) => setGiftType(v as GiftType)}
           >
-            <option value="coupon">Coupon</option>
-            <option value="video">Video</option>
-            <option value="voice">Voice</option>
-            <option value="image">Image</option>
-          </select>
-        </label>
+            <SelectTrigger className="h-auto w-full border-white/15 bg-black/20 py-2 ring-cyan-300 focus-visible:ring">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="coupon">Coupon</SelectItem>
+              <SelectItem value="video">Video</SelectItem>
+              <SelectItem value="voice">Voice</SelectItem>
+              <SelectItem value="image">Image</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-        <label className="text-sm">
-          <span className="mb-1 block text-slate-200">Gift payload (optional)</span>
-          <input
+        <div className="text-sm">
+          <Label htmlFor="gift-payload" className="mb-1 block text-slate-200">
+            Gift payload (optional)
+          </Label>
+          <Input
+            id="gift-payload"
             value={giftPayload}
             onChange={(event) => setGiftPayload(event.target.value)}
-            className="w-full rounded-lg border border-white/15 bg-black/20 px-3 py-2 outline-none ring-cyan-300 transition focus:ring"
+            className="h-auto border-white/15 bg-black/20 py-2 ring-cyan-300 focus-visible:ring"
             placeholder='{"coupon":"NEWYEAR20"} or plain text'
           />
-        </label>
+        </div>
 
         <div className="md:col-span-2">
           {error ? <p className="text-sm text-rose-300">{error}</p> : null}
           {success ? <p className="text-sm text-emerald-300">{success}</p> : null}
         </div>
 
-        <button
+        <Button
           type="submit"
           disabled={loading}
-          className="md:col-span-2 rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+          className="md:col-span-2 rounded-full bg-cyan-400 text-slate-950 hover:bg-cyan-300 disabled:opacity-60"
         >
           {loading ? "Saving..." : "Create Message"}
-        </button>
+        </Button>
       </form>
     </section>
   );
