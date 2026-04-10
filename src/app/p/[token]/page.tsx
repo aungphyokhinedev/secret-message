@@ -9,18 +9,18 @@ import { emailLocalPart, profileInitialsFromLabel } from "@/lib/profile-initials
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-type PublicUserPageProps = {
-  params: Promise<{ username: string }>;
+type PublicTokenPageProps = {
+  params: Promise<{ token: string }>;
 };
 
-export default async function PublicUserPage({ params }: PublicUserPageProps) {
+export default async function PublicTokenPage({ params }: PublicTokenPageProps) {
   if (!hasSupabaseEnv()) {
     notFound();
   }
 
-  const { username } = await params;
+  const { token } = await params;
   const supabase = await createSupabaseServerClient();
-  const returnPath = `/u/${encodeURIComponent(username)}`;
+  const returnPath = `/p/${encodeURIComponent(token)}`;
 
   const {
     data: { user },
@@ -30,15 +30,15 @@ export default async function PublicUserPage({ params }: PublicUserPageProps) {
     redirect(`/auth/sign-in?next=${encodeURIComponent(returnPath)}`);
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, username, avatar_url")
-    .eq("username", username)
-    .maybeSingle();
+  const { data: resolvedProfile } = await supabase.rpc("get_profile_by_share_token", {
+    p_token: token,
+  });
+  const profile = resolvedProfile?.[0];
 
   if (!profile) {
     notFound();
   }
+
   const { data: senderProfile } = await supabase
     .from("profiles")
     .select("username, avatar_url, is_premium, is_blocked")
@@ -62,14 +62,11 @@ export default async function PublicUserPage({ params }: PublicUserPageProps) {
   const dailyUsed = sentTodayCount ?? 0;
 
   const isSelf = Boolean(user.id === profile.id);
-
   const senderHandle =
     senderProfile?.username ?? emailLocalPart(user.email ?? undefined) ?? null;
   const senderDisplay = senderHandle ? `@${senderHandle}` : "You";
   const senderInitialsSource = senderHandle ?? emailLocalPart(user.email ?? undefined) ?? "user";
-  const senderAvatarAlt = senderHandle
-    ? `Avatar for ${senderDisplay}`
-    : "Your avatar";
+  const senderAvatarAlt = senderHandle ? `Avatar for ${senderDisplay}` : "Your avatar";
 
   return (
     <main className="min-h-screen bg-muted/40 text-foreground">

@@ -57,6 +57,7 @@ export async function ensureProfileForAuthUser(
     if (avatarUrl) {
       await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("id", user.id);
     }
+    await supabase.from("profile_share_links").upsert({ user_id: user.id });
     return existing.username;
   }
 
@@ -77,6 +78,7 @@ export async function ensureProfileForAuthUser(
     avatar_url: avatarUrl,
     is_premium: false,
   });
+  await supabase.from("profile_share_links").upsert({ user_id: user.id });
 
   const { data: refreshed } = await supabase
     .from("profiles")

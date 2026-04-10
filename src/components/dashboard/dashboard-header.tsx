@@ -22,6 +22,8 @@ type DashboardHeaderProps = {
   userEmail: string;
   userAvatarUrl: string | null;
   isPremium: boolean;
+  dailyUsed: number;
+  dailyLimit: number;
 };
 
 export function DashboardHeader({
@@ -29,6 +31,8 @@ export function DashboardHeader({
   userEmail,
   userAvatarUrl,
   isPremium,
+  dailyUsed,
+  dailyLimit,
 }: DashboardHeaderProps) {
   const { t } = useUiLanguage();
   const [accountOpen, setAccountOpen] = useState(false);
@@ -40,6 +44,12 @@ export function DashboardHeader({
         <div className="mx-auto flex max-w-6xl flex-row items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <DashboardProfileStrip currentUsername={currentUsername} currentAvatarUrl={userAvatarUrl} />
           <nav className="flex shrink-0 items-center gap-2" aria-label="Account">
+            <div
+              className="hidden rounded-md border border-border/70 bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground sm:block"
+              title={t("Daily sending usage", "နေ့စဉ်ပို့မှု အသုံးပြုမှု")}
+            >
+              {t(`Today ${dailyUsed}/${dailyLimit}`, `ယနေ့ ${dailyUsed}/${dailyLimit}`)}
+            </div>
             <LanguageSwitcher className="border-0 bg-transparent p-0 shadow-none ring-0" />
             <Button
               type="button"

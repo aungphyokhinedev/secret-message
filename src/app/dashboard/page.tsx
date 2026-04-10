@@ -5,6 +5,7 @@ import { ShareCard } from "@/components/share/share-card";
 import { Card, CardHeader } from "@/components/ui/card";
 import { H2, InlineCode, P } from "@/components/ui/typography";
 import { ensureProfileForAuthUser } from "@/lib/profile-bootstrap";
+import { BLOCKED_ACCOUNT_ERROR } from "@/lib/access-control";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -39,9 +40,13 @@ export default async function DashboardPage() {
   const username = await ensureProfileForAuthUser(supabase, user);
   const { data: myProfile } = await supabase
     .from("profiles")
-    .select("avatar_url, is_premium")
+    .select("avatar_url, is_premium, is_blocked")
     .eq("id", user.id)
     .maybeSingle();
+  if (myProfile?.is_blocked) {
+    await supabase.auth.signOut();
+    redirect(`/auth/sign-in?error=${encodeURIComponent(BLOCKED_ACCOUNT_ERROR)}`);
+  }
 
   const { data: feedRows, error: feedError } = await supabase
     .from("interactions_feed")
@@ -135,6 +140,22 @@ export default async function DashboardPage() {
     string,
     { username: string; avatar_url: string | null }
   >;
+  const { data: myShareLink } = await supabase
+    .from("profile_share_links")
+    .select("share_token")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const startOfUtcDay = new Date();
+  const dayStartIso = new Date(
+    Date.UTC(startOfUtcDay.getUTCFullYear(), startOfUtcDay.getUTCMonth(), startOfUtcDay.getUTCDate()),
+  ).toISOString();
+  const { count: sentTodayCount } = await supabase
+    .from("interactions_feed")
+    .select("id", { count: "exact", head: true })
+    .eq("sender_id", user.id)
+    .gte("created_at", dayStartIso);
+  const currentDailyLimit = myProfile?.is_premium ? 300 : 50;
+  const currentDailyUsed = sentTodayCount ?? 0;
 
   return (
     <>
@@ -147,10 +168,12 @@ export default async function DashboardPage() {
         userEmail={user.email ?? ""}
         userAvatarUrl={myProfile?.avatar_url ?? null}
         currentIsPremium={Boolean(myProfile?.is_premium)}
+        currentDailyUsed={currentDailyUsed}
+        currentDailyLimit={currentDailyLimit}
         notice={feedNotice}
         sentNotice={sentNotice}
       />
-      <ShareCard username={username} />
+      <ShareCard username={username} shareToken={myShareLink?.share_token ?? null} />
     </>
   );
 }

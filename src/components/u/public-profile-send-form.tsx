@@ -22,6 +22,8 @@ type PublicProfileSendFormProps = {
   receiverUsername: string;
   /** When the viewer is the profile owner, hide the send UI. */
   isSelf: boolean;
+  dailyLimit?: number;
+  dailyUsed?: number;
 };
 
 const OPTIONS: { value: "water_splash" | "black_soot" | "food" | "flower"; label: string; hint: string }[] =
@@ -35,6 +37,8 @@ const OPTIONS: { value: "water_splash" | "black_soot" | "food" | "flower"; label
 export function PublicProfileSendForm({
   receiverUsername,
   isSelf,
+  dailyLimit = 50,
+  dailyUsed = 0,
 }: PublicProfileSendFormProps) {
   const { t } = useUiLanguage();
   const [state, formAction, pending] = useActionState<SendInteractionState, FormData>(
@@ -46,6 +50,12 @@ export function PublicProfileSendForm({
     "hidden",
   );
   const [sendSuccessPlayId, setSendSuccessPlayId] = useState(0);
+  const [usedCount, setUsedCount] = useState(dailyUsed);
+  const remaining = Math.max(0, dailyLimit - usedCount);
+
+  useEffect(() => {
+    setUsedCount(dailyUsed);
+  }, [dailyUsed, dailyLimit]);
 
   useEffect(() => {
     if (pending) {
@@ -57,8 +67,9 @@ export function PublicProfileSendForm({
     if (!pending && state?.message && !state?.error) {
       setSendOverlayPhase("success");
       setSendSuccessPlayId((n) => n + 1);
+      setUsedCount((n) => Math.min(dailyLimit, n + 1));
     }
-  }, [pending, state]);
+  }, [pending, state, dailyLimit]);
 
   useEffect(() => {
     if (!pending && state?.error) {
@@ -104,6 +115,12 @@ export function PublicProfileSendForm({
         <legend className="font-heading text-sm font-medium text-foreground">
           {t("Choose one action or gift", "Action သို့ Gift တစ်ခုရွေးပါ")}
         </legend>
+        <p className="rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+          {t(
+            `Daily limit: ${usedCount}/${dailyLimit} used (${remaining} remaining). Free users: 50/day, premium users: 300/day.`,
+            `နေ့စဉ်ကန့်သတ်ချက်: ${usedCount}/${dailyLimit} သုံးပြီး (${remaining} ကျန်). Free = 50/နေ့, Premium = 300/နေ့။`,
+          )}
+        </p>
         <p className="text-sm leading-relaxed text-muted-foreground">
           Actions: Water splash / Black soot. Gifts: Food (Mont Lone Yay Paw) / Flower (Padauk
           Pann).
@@ -185,7 +202,12 @@ export function PublicProfileSendForm({
 
       <Separator />
 
-      <Button type="submit" disabled={pending} className="w-full rounded-lg" size="lg">
+      <Button
+        type="submit"
+        disabled={pending || remaining <= 0}
+        className="w-full rounded-lg"
+        size="lg"
+      >
         {pending ? t("Sending…", "ပို့နေသည်…") : t("Send", "ပို့မည်")}
       </Button>
     </form>

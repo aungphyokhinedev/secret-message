@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { BLOCKED_ACCOUNT_ERROR } from "@/lib/access-control";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
@@ -17,6 +18,13 @@ const interactionTypes = [
   "food",
   "flower",
 ] as const satisfies readonly Database["public"]["Enums"]["interaction_type"][];
+const FREE_DAILY_LIMIT = 50;
+const PREMIUM_DAILY_LIMIT = 300;
+
+function startOfUtcDayIso() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+}
 
 function isInteractionType(value: unknown): value is (typeof interactionTypes)[number] {
   return typeof value === "string" && (interactionTypes as readonly string[]).includes(value);
@@ -67,6 +75,34 @@ export async function sendInteractionAction(
 
   if (receiver.id === user.id) {
     return { error: "You cannot send an interaction to yourself." };
+  }
+
+  const [{ data: senderProfile }, { count: sentTodayCount, error: sentTodayError }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("is_premium, is_blocked")
+      .eq("id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("interactions_feed")
+      .select("id", { count: "exact", head: true })
+      .eq("sender_id", user.id)
+      .gte("created_at", startOfUtcDayIso()),
+  ]);
+
+  if (sentTodayError) {
+    return { error: sentTodayError.message };
+  }
+  if (senderProfile?.is_blocked) {
+    return { error: BLOCKED_ACCOUNT_ERROR };
+  }
+
+  const dailyLimit = senderProfile?.is_premium ? PREMIUM_DAILY_LIMIT : FREE_DAILY_LIMIT;
+  const used = sentTodayCount ?? 0;
+  if (used >= dailyLimit) {
+    return {
+      error: `Daily send limit reached (${dailyLimit}). Upgrade to premium for up to ${PREMIUM_DAILY_LIMIT} per day.`,
+    };
   }
 
   const { error } = await supabase.from("interactions").insert({

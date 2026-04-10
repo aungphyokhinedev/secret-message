@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 import { ensureProfileForAuthUser } from "@/lib/profile-bootstrap";
+import { BLOCKED_ACCOUNT_ERROR, isUserBlocked } from "@/lib/access-control";
 import { getSupabasePublicEnv } from "@/lib/supabase/env";
 import type { Database } from "@/types/database";
 
@@ -59,6 +60,13 @@ export async function GET(request: Request) {
 
   if (user) {
     await ensureProfileForAuthUser(supabase, user);
+    const blocked = await isUserBlocked(supabase, user.id);
+    if (blocked) {
+      await supabase.auth.signOut();
+      return NextResponse.redirect(
+        new URL(`/auth/sign-in?error=${encodeURIComponent(BLOCKED_ACCOUNT_ERROR)}`, origin),
+      );
+    }
   }
 
   return NextResponse.redirect(new URL(nextPath, origin));

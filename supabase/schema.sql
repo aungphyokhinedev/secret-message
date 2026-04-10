@@ -59,7 +59,16 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   username text not null unique,
   avatar_url text,
-  is_premium boolean not null default false
+  is_premium boolean not null default false,
+  is_blocked boolean not null default false
+);
+alter table public.profiles
+add column if not exists is_admin boolean not null default false;
+
+create table if not exists public.profile_share_links (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  share_token text not null unique default replace(gen_random_uuid()::text, '-', ''),
+  updated_at timestamptz not null default now()
 );
 
 do $$
@@ -86,8 +95,10 @@ create index if not exists interactions_created_at_idx on public.interactions (c
 
 alter table public.profiles enable row level security;
 alter table public.interactions enable row level security;
+alter table public.profile_share_links enable row level security;
 alter table public.profiles force row level security;
 alter table public.interactions force row level security;
+alter table public.profile_share_links force row level security;
 
 -- Profiles are readable by authenticated users and writable only by owner.
 drop policy if exists "profiles are readable by authenticated users" on public.profiles;
@@ -111,6 +122,28 @@ for update
 to authenticated
 using (auth.uid() = id)
 with check (auth.uid() = id);
+
+drop policy if exists "users can read own share link" on public.profile_share_links;
+create policy "users can read own share link"
+on public.profile_share_links
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "users can insert own share link" on public.profile_share_links;
+create policy "users can insert own share link"
+on public.profile_share_links
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "users can update own share link" on public.profile_share_links;
+create policy "users can update own share link"
+on public.profile_share_links
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
 
 -- Direct table reads are blocked; app should read via the masked view below.
 revoke select on public.interactions from anon, authenticated;
@@ -190,6 +223,85 @@ join public.profiles rp on rp.id = i.receiver_id
 where auth.uid() = i.sender_id or auth.uid() = i.receiver_id;
 
 grant select on public.interactions_feed to authenticated;
+
+create or replace function public.get_profile_by_share_token(p_token text)
+returns table (id uuid, username text, avatar_url text)
+language sql
+security definer
+set search_path = public
+as $$
+  select p.id, p.username, p.avatar_url
+  from public.profile_share_links s
+  join public.profiles p on p.id = s.user_id
+  where s.share_token = p_token
+  limit 1;
+$$;
+
+revoke all on function public.get_profile_by_share_token(text) from public;
+grant execute on function public.get_profile_by_share_token(text) to authenticated;
+
+create or replace function public.rotate_own_share_token()
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_token text := replace(gen_random_uuid()::text, '-', '');
+begin
+  update public.profile_share_links
+  set share_token = new_token,
+      updated_at = now()
+  where user_id = auth.uid();
+
+  if not found then
+    insert into public.profile_share_links (user_id, share_token)
+    values (auth.uid(), new_token)
+    on conflict (user_id)
+    do update
+      set share_token = excluded.share_token,
+          updated_at = now();
+  end if;
+
+  return new_token;
+end;
+$$;
+
+revoke all on function public.rotate_own_share_token() from public;
+grant execute on function public.rotate_own_share_token() to authenticated;
+
+create or replace function public.admin_update_user_flags(
+  p_target_user_id uuid,
+  p_is_premium boolean,
+  p_is_blocked boolean
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  caller_is_admin boolean := false;
+begin
+  select p.is_admin into caller_is_admin
+  from public.profiles p
+  where p.id = auth.uid();
+
+  if coalesce(caller_is_admin, false) is not true then
+    raise exception 'not_admin';
+  end if;
+
+  update public.profiles
+  set is_premium = coalesce(p_is_premium, is_premium),
+      is_blocked = coalesce(p_is_blocked, is_blocked)
+  where id = p_target_user_id;
+
+  return found;
+end;
+$$;
+
+revoke all on function public.admin_update_user_flags(uuid, boolean, boolean) from public;
+grant execute on function public.admin_update_user_flags(uuid, boolean, boolean) to authenticated;
 
 -- ==========================================
 -- Avatar storage bucket + policies

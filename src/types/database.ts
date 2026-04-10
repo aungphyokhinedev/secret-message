@@ -77,18 +77,24 @@ export type Database = {
           username: string;
           avatar_url: string | null;
           is_premium: boolean;
+          is_blocked: boolean;
+          is_admin: boolean;
         };
         Insert: {
           id: string;
           username: string;
           avatar_url?: string | null;
           is_premium?: boolean;
+          is_blocked?: boolean;
+          is_admin?: boolean;
         };
         Update: {
           id?: string;
           username?: string;
           avatar_url?: string | null;
           is_premium?: boolean;
+          is_blocked?: boolean;
+          is_admin?: boolean;
         };
         Relationships: [
           {
@@ -96,6 +102,32 @@ export type Database = {
             columns: ["id"];
             isOneToOne: true;
             referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      profile_share_links: {
+        Row: {
+          user_id: string;
+          share_token: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          share_token?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          share_token?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "profile_share_links_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -167,6 +199,26 @@ export type Database = {
     Functions: {
       delete_own_sent_interaction: {
         Args: { p_id: string };
+        Returns: boolean;
+      };
+      get_profile_by_share_token: {
+        Args: { p_token: string };
+        Returns: {
+          id: string;
+          username: string;
+          avatar_url: string | null;
+        }[];
+      };
+      rotate_own_share_token: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
+      admin_update_user_flags: {
+        Args: {
+          p_target_user_id: string;
+          p_is_premium: boolean;
+          p_is_blocked: boolean;
+        };
         Returns: boolean;
       };
     };

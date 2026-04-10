@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { toPng } from "html-to-image";
-import { Copy, Download, ExternalLink, Share2 } from "lucide-react";
+import { Copy, Download, ExternalLink, RefreshCw, Share2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 
+import { rotateOwnShareTokenAction } from "@/app/dashboard/actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -34,17 +35,24 @@ const QR_SIZE = 160;
 
 type ShareCardProps = {
   username: string;
+  shareToken: string | null;
 };
 
-export function ShareCard({ username }: ShareCardProps) {
+export function ShareCard({ username, shareToken }: ShareCardProps) {
   const { t } = useUiLanguage();
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [token, setToken] = useState(shareToken);
+  const [rotatingToken, setRotatingToken] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const sharePath = `/u/${username}`;
+  useEffect(() => {
+    setToken(shareToken);
+  }, [shareToken]);
+
+  const sharePath = token ? `/p/${token}` : `/u/${username}`;
   const shareUrl = useMemo(() => {
     if (typeof window !== "undefined") {
       return `${window.location.origin}${sharePath}`;
@@ -74,6 +82,22 @@ export function ShareCard({ username }: ShareCardProps) {
       setError(t("Could not download card. Please try again.", "Card ကို download မလုပ်နိုင်ပါ။ ထပ်မံကြိုးစားပါ။"));
     } finally {
       setDownloading(false);
+    }
+  }
+
+  async function rotateLink() {
+    setError(null);
+    setRotatingToken(true);
+    try {
+      const result = await rotateOwnShareTokenAction();
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setToken(result.shareToken);
+      setCopied(false);
+    } finally {
+      setRotatingToken(false);
     }
   }
 
@@ -163,6 +187,20 @@ export function ShareCard({ username }: ShareCardProps) {
               <Copy className="size-4 shrink-0" aria-hidden />
               <span className="min-w-0 truncate">
                 {copied ? t("Copied", "ကူးပြီး") : t("Copy", "ကူးယူ")}
+              </span>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full shrink-0 gap-2 rounded-lg sm:w-auto"
+              onClick={() => void rotateLink()}
+              disabled={rotatingToken}
+            >
+              <RefreshCw className={cn("size-4 shrink-0", rotatingToken && "animate-spin")} aria-hidden />
+              <span className="min-w-0 truncate">
+                {rotatingToken
+                  ? t("Rotating...", "ပြောင်းနေသည်...")
+                  : t("Regenerate link", "လင့်အသစ်ပြန်ထုတ်")}
               </span>
             </Button>
           </div>

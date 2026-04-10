@@ -99,6 +99,8 @@ export type DashboardClientProps = {
   userEmail: string;
   userAvatarUrl: string | null;
   currentIsPremium: boolean;
+  currentDailyUsed: number;
+  currentDailyLimit: number;
   notice?: string | null;
   sentNotice?: string | null;
 };
@@ -112,6 +114,8 @@ export function DashboardClient({
   userEmail,
   userAvatarUrl,
   currentIsPremium,
+  currentDailyUsed,
+  currentDailyLimit,
   notice,
   sentNotice,
 }: DashboardClientProps) {
@@ -202,9 +206,11 @@ export function DashboardClient({
         userEmail={userEmail}
         userAvatarUrl={userAvatarUrl}
         isPremium={currentIsPremium}
+        dailyUsed={currentDailyUsed}
+        dailyLimit={currentDailyLimit}
       />
 
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
         <Card className="overflow-hidden rounded-xl border border-border bg-card shadow-sm ring-0">
           <div className="space-y-6 px-4 py-6 sm:px-6">
           <div className="space-y-5">
@@ -509,8 +515,8 @@ export function DashboardClient({
                                       <div className="flex items-center gap-2">
                                         <Avatar
                                           src={peer?.avatar_url ?? null}
-                                          size={32}
-                                          className="size-8 shrink-0 ring-1 ring-border"
+                                          size={28}
+                                          className="size-7 shrink-0 ring-1 ring-border"
                                         />
                                         <span className="truncate font-medium">{who}</span>
                                       </div>
