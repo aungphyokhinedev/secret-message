@@ -39,7 +39,7 @@ export default async function DashboardPage() {
   const username = await ensureProfileForAuthUser(supabase, user);
   const { data: myProfile } = await supabase
     .from("profiles")
-    .select("avatar_url")
+    .select("avatar_url, is_premium")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -146,6 +146,7 @@ export default async function DashboardPage() {
         currentUsername={username}
         userEmail={user.email ?? ""}
         userAvatarUrl={myProfile?.avatar_url ?? null}
+        currentIsPremium={Boolean(myProfile?.is_premium)}
         notice={feedNotice}
         sentNotice={sentNotice}
       />

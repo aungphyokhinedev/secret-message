@@ -116,11 +116,14 @@ export function ShareCard({ username }: ShareCardProps) {
           "border border-border bg-card text-card-foreground shadow-sm ring-0",
         )}
       >
-        <DialogHeader className="gap-2 border-b border-border px-5 py-5 text-left sm:px-6 sm:py-6">
-          <DialogTitle className="text-xl font-semibold tracking-tight text-foreground">
+        <DialogHeader className="gap-1 border-b border-border px-5 py-5 text-left sm:px-6 sm:py-6">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {t("Online Thingyan", "အွန်လိုင်း သင်္ကြန်")}
+          </p>
+          <DialogTitle className="mt-1 text-2xl font-bold tracking-tight text-foreground">
             {t("Share profile", "Profile မျှဝေရန်")}
           </DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+          <DialogDescription className="mt-1 text-sm leading-relaxed text-muted-foreground">
             {t(
               "Friends can scan the QR code or use your link to open your profile and send messages and gifts.",
               "သူငယ်ချင်းများ QR code ကို scan လုပ်ပါ သို့မဟုတ် သင့် link ဖြင့်ဝင်ပြီး စာနှင့် လက်ဆောင်များ ပို့နိုင်ပါသည်။",
@@ -133,8 +136,8 @@ export function ShareCard({ username }: ShareCardProps) {
             ref={cardRef}
             className="rounded-xl border border-border bg-muted/40 p-5 text-center shadow-none sm:p-6"
           >
-            <p className="text-xs font-semibold uppercase tracking-wider text-primary">SecretGift</p>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">@{username}</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">SecretGift</p>
+            <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">@{username}</p>
             <div className="mx-auto mt-4 inline-flex rounded-lg border border-border bg-background p-3 shadow-none">
               <QRCodeSVG value={shareUrl} size={QR_SIZE} includeMargin />
             </div>
@@ -168,7 +171,7 @@ export function ShareCard({ username }: ShareCardProps) {
         <Separator />
 
         <div className="flex flex-col gap-4 px-5 pb-6 sm:px-6">
-          <p className="text-sm font-medium text-foreground">
+          <p className="font-heading text-base text-foreground">
             {t("Actions", "လုပ်ဆောင်ချက်များ")}
           </p>
           <div className="flex min-w-0 flex-col gap-3">
@@ -181,10 +184,10 @@ export function ShareCard({ username }: ShareCardProps) {
               >
                 <Download className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
                 <span className="min-w-0 flex-1 space-y-1">
-                  <span className="block font-medium leading-snug text-foreground">
+                  <span className="block font-heading text-base leading-snug text-foreground">
                     {t("Download card", "Card ဒေါင်းလုပ်")}
                   </span>
-                  <span className="block text-xs leading-relaxed text-muted-foreground">
+                  <span className="block text-sm leading-relaxed text-muted-foreground">
                     {t("PNG image with QR", "QR ပါ PNG ပုံ")}
                   </span>
                 </span>
@@ -199,10 +202,10 @@ export function ShareCard({ username }: ShareCardProps) {
               >
                 <Share2 className="mt-0.5 size-4 shrink-0 text-foreground" aria-hidden />
                 <span className="min-w-0 flex-1 space-y-1">
-                  <span className="block font-medium leading-snug text-foreground">
+                  <span className="block font-heading text-base leading-snug text-foreground">
                     {t("Share link", "Link မျှဝေ")}
                   </span>
-                  <span className="block text-xs leading-relaxed text-muted-foreground">
+                  <span className="block text-sm leading-relaxed text-muted-foreground">
                     {t("System share or clipboard", "စနစ် share သို့မဟုတ် clipboard")}
                   </span>
                 </span>
@@ -218,10 +221,10 @@ export function ShareCard({ username }: ShareCardProps) {
               >
                 <ExternalLink className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
                 <span className="min-w-0 flex-1 space-y-1">
-                  <span className="block font-medium leading-snug text-foreground">
+                  <span className="block font-heading text-base leading-snug text-foreground">
                     {t("Open public page", "Public page ဖွင့်")}
                   </span>
-                  <span className="block text-xs leading-relaxed text-muted-foreground">
+                  <span className="block text-sm leading-relaxed text-muted-foreground">
                     {t("Preview as visitors see it", "ဧည့်သည်များ မြင်သည့်အတိုင်း")}
                   </span>
                 </span>

@@ -98,6 +98,7 @@ export type DashboardClientProps = {
   currentUsername: string;
   userEmail: string;
   userAvatarUrl: string | null;
+  currentIsPremium: boolean;
   notice?: string | null;
   sentNotice?: string | null;
 };
@@ -110,6 +111,7 @@ export function DashboardClient({
   currentUsername,
   userEmail,
   userAvatarUrl,
+  currentIsPremium,
   notice,
   sentNotice,
 }: DashboardClientProps) {
@@ -199,6 +201,7 @@ export function DashboardClient({
         currentUsername={currentUsername}
         userEmail={userEmail}
         userAvatarUrl={userAvatarUrl}
+        isPremium={currentIsPremium}
       />
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">

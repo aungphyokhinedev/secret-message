@@ -47,6 +47,9 @@ const REVEAL_DELAY_MS = 380;
 /** Message layer exit duration (ms) before replay restarts the sprite — keep in sync with CSS transition. */
 const MESSAGE_OUT_MS = 420;
 
+/** Slower playback for a more cinematic feel. */
+const SPRITE_FPS = 2.6;
+
 export function InteractionStageCard({
   open,
   onClose,
@@ -124,15 +127,20 @@ export function InteractionStageCard({
 
       const render = (sheet: HTMLImageElement, time: number, runStartMs: number) => {
         if (cancelled) return;
-        const fps = 4;
         const frameCount = 16;
-        const frameDurationMs = 1000 / fps;
+        const frameDurationMs = 1000 / SPRITE_FPS;
         const elapsedSinceRunStart = time - runStartMs;
         const effectiveTime = Math.max(0, elapsedSinceRunStart);
         const frameIndex = Math.min(
           frameCount - 1,
           Math.floor(effectiveTime / frameDurationMs),
         );
+        const frameProgress = Math.min(
+          1,
+          Math.max(0, (effectiveTime - frameIndex * frameDurationMs) / frameDurationMs),
+        );
+        const overallProgress = Math.min(1, Math.max(0, effectiveTime / (frameDurationMs * frameCount)));
+        const eased = 0.5 - Math.cos(overallProgress * Math.PI) / 2;
         const col = frameIndex % 4;
         const row = Math.floor(frameIndex / 4);
         const w = canvas.width;
@@ -143,20 +151,31 @@ export function InteractionStageCard({
         ctx.clearRect(0, 0, w, h);
         ctx.fillStyle = "rgba(2, 6, 23, 0.35)";
         ctx.fillRect(0, 0, w, h);
+        const glow = ctx.createRadialGradient(w * 0.5, h * 0.5, w * 0.12, w * 0.5, h * 0.5, w * 0.58);
+        glow.addColorStop(0, `rgba(99, 102, 241, ${0.16 + eased * 0.08})`);
+        glow.addColorStop(0.65, `rgba(59, 130, 246, ${0.06 + eased * 0.05})`);
+        glow.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, w, h);
 
         ctx.imageSmoothingEnabled = true;
         /** Pixels to shave off each frame cell in the sprite sheet (removes grid/border lines). */
         const sourceTrim = Math.min(6, Math.max(0, Math.floor(Math.min(frameW, frameH) / 8) - 1));
         /** Inset on the canvas when drawing (extra crop on screen). */
-        const destTrim = Math.min(4, Math.floor(Math.min(w, h) / 32));
+        const baseDestTrim = Math.min(4, Math.floor(Math.min(w, h) / 32));
+        const breathing = Math.sin(overallProgress * Math.PI * 2 + frameProgress * Math.PI) * 0.5 + 0.5;
+        const dynamicInset = baseDestTrim + eased * 6 + breathing * 3;
+        const verticalDrift = Math.sin(overallProgress * Math.PI * 2.2) * 5 - 2;
         const sx = col * frameW + sourceTrim;
         const sy = row * frameH + sourceTrim;
         const sw = Math.max(1, frameW - sourceTrim * 2);
         const sh = Math.max(1, frameH - sourceTrim * 2);
-        const dw = w - destTrim * 2;
-        const dh = h - destTrim * 2;
+        const dx = dynamicInset;
+        const dy = dynamicInset + verticalDrift;
+        const dw = w - dynamicInset * 2;
+        const dh = h - dynamicInset * 2;
         try {
-          ctx.drawImage(sheet, sx, sy, sw, sh, destTrim, destTrim, dw, dh);
+          ctx.drawImage(sheet, sx, sy, sw, sh, dx, dy, dw, dh);
         } catch {
           if (!cancelled) setSheetStatus("missing");
           return;
@@ -285,12 +304,7 @@ export function InteractionStageCard({
               </div>
             </CardHeader>
             <CardContent className="relative p-4 pt-0">
-              <div
-                className={cn(
-                  "relative min-h-[12rem] overflow-hidden rounded-xl border border-border bg-muted/40",
-                  "ring-1 ring-foreground/5",
-                )}
-              >
+              <div className="relative min-h-[12rem] overflow-hidden rounded-xl bg-muted/40">
                 {/* Animation layer — fills panel while playing */}
                 <div
                   className={cn(
@@ -333,12 +347,12 @@ export function InteractionStageCard({
                 {/* Message layer — fades/slides in after animation; plays out before replay */}
                 <div
                   className={cn(
-                    "relative z-10 flex min-h-[12rem] flex-col justify-center px-4 py-5 ease-out",
+                    "relative z-10 flex min-h-[12rem] flex-col justify-start px-4 py-5 text-left ease-out",
                     !messageShown
                       ? "pointer-events-none translate-y-4 opacity-0 duration-500"
                       : isMessageLeaving
                         ? "pointer-events-none translate-y-2 scale-[0.99] opacity-0 blur-[1px] duration-[420ms]"
-                        : "translate-y-0 opacity-100 duration-500",
+                        : "interaction-stage-message-bounce-in translate-y-0 opacity-100 duration-500",
                   )}
                 >
                   <p className="text-sm leading-relaxed text-foreground [text-wrap:pretty]">
