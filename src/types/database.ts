@@ -140,6 +140,8 @@ export type Database = {
           type: Database["public"]["Enums"]["interaction_type"];
           message: string | null;
           created_at: string;
+          receiver_read_at: string | null;
+          sender_deleted_at: string | null;
         };
         Insert: {
           id?: string;
@@ -148,6 +150,8 @@ export type Database = {
           type: Database["public"]["Enums"]["interaction_type"];
           message?: string | null;
           created_at?: string;
+          receiver_read_at?: string | null;
+          sender_deleted_at?: string | null;
         };
         Update: {
           id?: string;
@@ -156,6 +160,8 @@ export type Database = {
           type?: Database["public"]["Enums"]["interaction_type"];
           message?: string | null;
           created_at?: string;
+          receiver_read_at?: string | null;
+          sender_deleted_at?: string | null;
         };
         Relationships: [
           {
@@ -184,6 +190,7 @@ export type Database = {
           type: Database["public"]["Enums"]["interaction_type"];
           message: string | null;
           created_at: string;
+          receiver_read_at: string | null;
         };
         Relationships: [
           {
@@ -200,6 +207,10 @@ export type Database = {
       delete_own_sent_interaction: {
         Args: { p_id: string };
         Returns: boolean;
+      };
+      count_own_sent_interactions_since: {
+        Args: { p_since: string | null };
+        Returns: number;
       };
       get_profile_by_share_token: {
         Args: { p_token: string };
@@ -219,6 +230,10 @@ export type Database = {
           p_is_premium: boolean;
           p_is_blocked: boolean;
         };
+        Returns: boolean;
+      };
+      mark_interaction_read: {
+        Args: { p_id: string };
         Returns: boolean;
       };
     };

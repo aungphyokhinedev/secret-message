@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { BLOCKED_ACCOUNT_ERROR } from "@/lib/access-control";
+import { PUBLIC_MESSAGE_MAX_CHARS } from "@/lib/message-limits";
+import { countSentInteractionsSinceUtcDayStart } from "@/lib/sent-interactions-daily-count";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
@@ -63,6 +65,12 @@ export async function sendInteractionAction(
     return { error: "Please enter a message." };
   }
 
+  if (messageRaw.length > PUBLIC_MESSAGE_MAX_CHARS) {
+    return {
+      error: `Message must be at most ${PUBLIC_MESSAGE_MAX_CHARS} characters.`,
+    };
+  }
+
   const { data: receiver } = await supabase
     .from("profiles")
     .select("id, username")
@@ -77,28 +85,18 @@ export async function sendInteractionAction(
     return { error: "You cannot send an interaction to yourself." };
   }
 
-  const [{ data: senderProfile }, { count: sentTodayCount, error: sentTodayError }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("is_premium, is_blocked")
-      .eq("id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("interactions_feed")
-      .select("id", { count: "exact", head: true })
-      .eq("sender_id", user.id)
-      .gte("created_at", startOfUtcDayIso()),
-  ]);
+  const { data: senderProfile } = await supabase
+    .from("profiles")
+    .select("is_premium, is_blocked")
+    .eq("id", user.id)
+    .maybeSingle();
 
-  if (sentTodayError) {
-    return { error: sentTodayError.message };
-  }
   if (senderProfile?.is_blocked) {
     return { error: BLOCKED_ACCOUNT_ERROR };
   }
 
   const dailyLimit = senderProfile?.is_premium ? PREMIUM_DAILY_LIMIT : FREE_DAILY_LIMIT;
-  const used = sentTodayCount ?? 0;
+  const used = await countSentInteractionsSinceUtcDayStart(supabase, startOfUtcDayIso(), user.id);
   if (used >= dailyLimit) {
     return {
       error: `Daily send limit reached (${dailyLimit}). Upgrade to premium for up to ${PREMIUM_DAILY_LIMIT} per day.`,
@@ -109,7 +107,7 @@ export async function sendInteractionAction(
     sender_id: user.id,
     receiver_id: receiver.id,
     type: typeRaw,
-    message: messageRaw.slice(0, 2000),
+    message: messageRaw,
   });
 
   if (error) {

@@ -33,7 +33,23 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  /** Public send pages (/u/:user, /p/:token) require sign-in — redirect before RSC runs. */
+  const pathname = request.nextUrl.pathname;
+  const segments = pathname.split("/").filter(Boolean);
+  const isPublicProfileSend =
+    segments.length === 2 && (segments[0] === "u" || segments[0] === "p");
+
+  if (isPublicProfileSend && !user) {
+    const path = pathname.endsWith("/") && pathname.length > 1 ? pathname.slice(0, -1) : pathname;
+    const nextTarget = `${path}${request.nextUrl.search}`;
+    const signIn = new URL("/auth/sign-in", request.nextUrl.origin);
+    signIn.searchParams.set("next", nextTarget);
+    return NextResponse.redirect(signIn);
+  }
 
   return supabaseResponse;
 }

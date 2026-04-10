@@ -5,6 +5,7 @@ import { ShareCard } from "@/components/share/share-card";
 import { Card, CardHeader } from "@/components/ui/card";
 import { H2, InlineCode, P } from "@/components/ui/typography";
 import { ensureProfileForAuthUser } from "@/lib/profile-bootstrap";
+import { countSentInteractionsSinceUtcDayStart } from "@/lib/sent-interactions-daily-count";
 import { BLOCKED_ACCOUNT_ERROR } from "@/lib/access-control";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -50,7 +51,7 @@ export default async function DashboardPage() {
 
   const { data: feedRows, error: feedError } = await supabase
     .from("interactions_feed")
-    .select("id, sender_id, receiver_id, type, message, created_at")
+    .select("id, sender_id, receiver_id, type, message, created_at, receiver_read_at")
     .eq("receiver_id", user.id)
     .order("created_at", { ascending: false })
     .limit(50);
@@ -61,8 +62,9 @@ export default async function DashboardPage() {
   if (feedError) {
     const { data: rawRows, error: rawError } = await supabase
       .from("interactions")
-      .select("id, receiver_id, type, message, created_at")
+      .select("id, receiver_id, type, message, created_at, receiver_read_at")
       .eq("receiver_id", user.id)
+      .is("sender_deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -99,7 +101,7 @@ export default async function DashboardPage() {
 
   const { data: sentRows, error: sentError } = await supabase
     .from("interactions_feed")
-    .select("id, sender_id, receiver_id, type, message, created_at")
+    .select("id, sender_id, receiver_id, type, message, created_at, receiver_read_at")
     .eq("sender_id", user.id)
     .order("created_at", { ascending: false })
     .limit(50);
@@ -110,8 +112,9 @@ export default async function DashboardPage() {
   if (sentError) {
     const { data: rawSent, error: rawSentError } = await supabase
       .from("interactions")
-      .select("id, sender_id, receiver_id, type, message, created_at")
+      .select("id, sender_id, receiver_id, type, message, created_at, receiver_read_at")
       .eq("sender_id", user.id)
+      .is("sender_deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -149,13 +152,14 @@ export default async function DashboardPage() {
   const dayStartIso = new Date(
     Date.UTC(startOfUtcDay.getUTCFullYear(), startOfUtcDay.getUTCMonth(), startOfUtcDay.getUTCDate()),
   ).toISOString();
-  const { count: sentTodayCount } = await supabase
+  const currentDailyLimit = myProfile?.is_premium ? 300 : 50;
+  const currentDailyUsed = await countSentInteractionsSinceUtcDayStart(supabase, dayStartIso, user.id);
+
+  const { count: unreadReceivedCount } = await supabase
     .from("interactions_feed")
     .select("id", { count: "exact", head: true })
-    .eq("sender_id", user.id)
-    .gte("created_at", dayStartIso);
-  const currentDailyLimit = myProfile?.is_premium ? 300 : 50;
-  const currentDailyUsed = sentTodayCount ?? 0;
+    .eq("receiver_id", user.id)
+    .is("receiver_read_at", null);
 
   return (
     <>
@@ -170,6 +174,7 @@ export default async function DashboardPage() {
         currentIsPremium={Boolean(myProfile?.is_premium)}
         currentDailyUsed={currentDailyUsed}
         currentDailyLimit={currentDailyLimit}
+        initialUnreadReceivedCount={unreadReceivedCount ?? 0}
         notice={feedNotice}
         sentNotice={sentNotice}
       />

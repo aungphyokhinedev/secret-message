@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 
 import { LogOut } from "lucide-react";
 
@@ -14,9 +14,17 @@ type SignOutButtonProps = {
   className?: string;
   /** Compact icon-only button (e.g. dashboard toolbar). */
   icon?: boolean;
+  /** Show logout icon before label (e.g. account dialog). */
+  showLeadingIcon?: boolean;
+  variant?: ComponentProps<typeof Button>["variant"];
 };
 
-export function SignOutButton({ className = "", icon = false }: SignOutButtonProps) {
+export function SignOutButton({
+  className = "",
+  icon = false,
+  showLeadingIcon = false,
+  variant = "outline",
+}: SignOutButtonProps) {
   const router = useRouter();
   const supabase = useSupabaseBrowser();
   const { t } = useUiLanguage();
@@ -35,7 +43,7 @@ export function SignOutButton({ className = "", icon = false }: SignOutButtonPro
     return (
       <Button
         type="button"
-        variant="outline"
+        variant={variant}
         size="icon"
         onClick={onSignOut}
         disabled={loading}
@@ -51,11 +59,12 @@ export function SignOutButton({ className = "", icon = false }: SignOutButtonPro
   return (
     <Button
       type="button"
-      variant="outline"
+      variant={variant}
       onClick={onSignOut}
       disabled={loading}
-      className={cn("rounded-full", className)}
+      className={cn(showLeadingIcon ? "gap-2 rounded-xl" : "rounded-full", className)}
     >
+      {showLeadingIcon ? <LogOut className="size-4 shrink-0 opacity-90" aria-hidden /> : null}
       {loading ? t("Signing out...", "ထွက်နေသည်...") : label}
     </Button>
   );

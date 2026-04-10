@@ -88,6 +88,12 @@ create table if not exists public.interactions (
   created_at timestamptz not null default now(),
   constraint interactions_sender_receiver_check check (sender_id <> receiver_id)
 );
+alter table public.interactions
+add column if not exists receiver_read_at timestamptz;
+
+-- Sender soft-delete: row stays in DB; hidden from both parties in interactions_feed.
+alter table public.interactions
+add column if not exists sender_deleted_at timestamptz;
 
 create index if not exists interactions_sender_id_idx on public.interactions (sender_id);
 create index if not exists interactions_receiver_id_idx on public.interactions (receiver_id);
@@ -168,16 +174,12 @@ for select
 to authenticated
 using (auth.uid() = sender_id or auth.uid() = receiver_id);
 
--- Senders can remove their own outgoing interactions from both feeds.
+-- Soft-delete only: use RPC delete_own_sent_interaction (sets sender_deleted_at). No client DELETE.
 drop policy if exists "users can delete own sent interactions" on public.interactions;
-create policy "users can delete own sent interactions"
-on public.interactions
-for delete
-to authenticated
-using (auth.uid() = sender_id);
 
--- Direct DELETE from the client often fails if `authenticated` lacks table privilege or FORCE RLS
--- blocks the role. Use this RPC instead: runs as definer, enforces sender in SQL only.
+revoke delete on table public.interactions from authenticated;
+
+-- Sets sender_deleted_at so the row remains but interactions_feed hides it for sender and receiver.
 create or replace function public.delete_own_sent_interaction(p_id uuid)
 returns boolean
 language plpgsql
@@ -190,11 +192,12 @@ begin
   if p_id is null then
     return false;
   end if;
-  -- Tight filter; row_security off avoids privilege/RLS mismatch for API roles.
   set local row_security = off;
-  delete from public.interactions
+  update public.interactions
+  set sender_deleted_at = now()
   where id = p_id
-    and sender_id = auth.uid();
+    and sender_id = auth.uid()
+    and sender_deleted_at is null;
   get diagnostics n = row_count;
   return n > 0;
 end;
@@ -203,8 +206,22 @@ $$;
 revoke all on function public.delete_own_sent_interaction(uuid) from public;
 grant execute on function public.delete_own_sent_interaction(uuid) to authenticated;
 
--- Optional: allow direct table deletes when privileges are set up correctly.
-grant delete on table public.interactions to authenticated;
+-- Daily send limits count all sends today (including soft-deleted rows).
+create or replace function public.count_own_sent_interactions_since(p_since timestamptz)
+returns integer
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select count(*)::int
+  from public.interactions
+  where sender_id = auth.uid()
+    and created_at >= coalesce(p_since, '-infinity'::timestamptz);
+$$;
+
+revoke all on function public.count_own_sent_interactions_since(timestamptz) from public;
+grant execute on function public.count_own_sent_interactions_since(timestamptz) to authenticated;
 
 create or replace view public.interactions_feed as
 select
@@ -217,10 +234,12 @@ select
   i.receiver_id,
   i.type,
   i.message,
-  i.created_at
+  i.created_at,
+  i.receiver_read_at
 from public.interactions i
 join public.profiles rp on rp.id = i.receiver_id
-where auth.uid() = i.sender_id or auth.uid() = i.receiver_id;
+where (auth.uid() = i.sender_id or auth.uid() = i.receiver_id)
+  and i.sender_deleted_at is null;
 
 grant select on public.interactions_feed to authenticated;
 
@@ -302,6 +321,29 @@ $$;
 
 revoke all on function public.admin_update_user_flags(uuid, boolean, boolean) from public;
 grant execute on function public.admin_update_user_flags(uuid, boolean, boolean) to authenticated;
+
+create or replace function public.mark_interaction_read(p_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n int;
+begin
+  update public.interactions
+  set receiver_read_at = coalesce(receiver_read_at, now())
+  where id = p_id
+    and receiver_id = auth.uid()
+    and sender_deleted_at is null;
+
+  get diagnostics n = row_count;
+  return n > 0;
+end;
+$$;
+
+revoke all on function public.mark_interaction_read(uuid) from public;
+grant execute on function public.mark_interaction_read(uuid) to authenticated;
 
 -- ==========================================
 -- Avatar storage bucket + policies

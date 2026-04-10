@@ -1,14 +1,21 @@
 "use client";
 
-import Link from "next/link";
+import { RefreshCw } from "lucide-react";
 import { toPng } from "html-to-image";
-import { Copy, Download, ExternalLink, RefreshCw, Share2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 
 import { rotateOwnShareTokenAction } from "@/app/dashboard/actions";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -16,22 +23,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { useUiLanguage } from "@/components/providers/ui-language-provider";
+import { Muted, Small } from "@/components/ui/typography";
 import { cn } from "@/lib/utils";
 
-const actionCardClass =
-  "gap-0 overflow-hidden rounded-xl border border-border bg-card p-0 py-0 shadow-none ring-0";
-
-const actionTriggerClass = cn(
-  "flex w-full min-w-0 items-start gap-3 px-4 py-4 text-left text-sm outline-none transition-colors",
-  "rounded-xl hover:bg-muted/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50",
-  "disabled:pointer-events-none disabled:opacity-50",
-);
-
 /** Matches dashboard preview scale; PNG export still looks sharp at 2x pixelRatio. */
-const QR_SIZE = 160;
+const QR_SIZE = 156;
 
 type ShareCardProps = {
   username: string;
@@ -42,10 +39,11 @@ export function ShareCard({ username, shareToken }: ShareCardProps) {
   const { t } = useUiLanguage();
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
-  const [downloading, setDownloading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [token, setToken] = useState(shareToken);
   const [rotatingToken, setRotatingToken] = useState(false);
+  const [confirmRotateOpen, setConfirmRotateOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -67,23 +65,6 @@ export function ShareCard({ username, shareToken }: ShareCardProps) {
     window.addEventListener("secretgift:open-share-panel", onOpen);
     return () => window.removeEventListener("secretgift:open-share-panel", onOpen);
   }, [username]);
-
-  async function downloadCard() {
-    if (!cardRef.current) return;
-    setDownloading(true);
-    setError(null);
-    try {
-      const dataUrl = await toPng(cardRef.current, { cacheBust: true, pixelRatio: 2 });
-      const link = document.createElement("a");
-      link.download = `secretgift-share-${username}.png`;
-      link.href = dataUrl;
-      link.click();
-    } catch {
-      setError(t("Could not download card. Please try again.", "Card ကို download မလုပ်နိုင်ပါ။ ထပ်မံကြိုးစားပါ။"));
-    } finally {
-      setDownloading(false);
-    }
-  }
 
   async function rotateLink() {
     setError(null);
@@ -131,69 +112,56 @@ export function ShareCard({ username, shareToken }: ShareCardProps) {
     }
   }
 
+  async function saveQr() {
+    if (!cardRef.current) return;
+    setDownloading(true);
+    setError(null);
+    try {
+      const dataUrl = await toPng(cardRef.current, { cacheBust: true, pixelRatio: 2 });
+      const link = document.createElement("a");
+      link.download = `secretgift-share-${username}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch {
+      setError(t("Could not save QR. Please try again.", "QR ကို သိမ်းမရပါ။ ထပ်မံကြိုးစားပါ။"));
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent
         showCloseButton
         className={cn(
-          "max-h-[min(92vh,760px)] gap-0 overflow-y-auto p-0 sm:max-w-lg",
+          "max-h-[min(92vh,720px)] gap-0 overflow-y-auto p-0 sm:max-w-lg",
           "border border-border bg-card text-card-foreground shadow-sm ring-0",
         )}
       >
-        <DialogHeader className="gap-1 border-b border-border px-5 py-5 text-left sm:px-6 sm:py-6">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <DialogHeader className="gap-2 border-b border-border/50 bg-muted/10 px-6 py-6 pr-12 text-left sm:px-8 sm:py-7 sm:pr-14">
+          <Small className="text-[0.7rem] uppercase tracking-wider text-muted-foreground">
             {t("Online Thingyan", "အွန်လိုင်း သင်္ကြန်")}
-          </p>
+          </Small>
           <DialogTitle className="mt-1 text-2xl font-bold tracking-tight text-foreground">
             {t("Share profile", "Profile မျှဝေရန်")}
           </DialogTitle>
-          <DialogDescription className="mt-1 text-sm leading-relaxed text-muted-foreground">
+          <DialogDescription className="mt-2">
+            <Muted className="text-base leading-relaxed">
             {t(
               "Friends can scan the QR code or use your link to open your profile and send messages and gifts.",
               "သူငယ်ချင်းများ QR code ကို scan လုပ်ပါ သို့မဟုတ် သင့် link ဖြင့်ဝင်ပြီး စာနှင့် လက်ဆောင်များ ပို့နိုင်ပါသည်။",
             )}
+            </Muted>
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 px-5 py-6 sm:px-6">
-          <div
-            ref={cardRef}
-            className="rounded-xl border border-border bg-muted/40 p-5 text-center shadow-none sm:p-6"
-          >
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">SecretGift</p>
-            <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">@{username}</p>
-            <div className="mx-auto mt-4 inline-flex rounded-lg border border-border bg-background p-3 shadow-none">
-              <QRCodeSVG value={shareUrl} size={QR_SIZE} includeMargin />
-            </div>
-            <p className="mt-4 break-all font-mono text-xs leading-relaxed text-muted-foreground sm:text-sm">
-              {shareUrl}
-            </p>
-          </div>
-
-          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-stretch">
-            <Input
-              readOnly
-              value={shareUrl}
-              onFocus={(e) => e.target.select()}
-              className="min-w-0 w-full flex-1 font-mono text-sm"
-              aria-label={t("Public profile URL", "Public profile URL")}
-            />
+        <div className="space-y-6 px-6 pb-8 pt-6 sm:px-8 sm:pb-9 sm:pt-7">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-stretch sm:justify-end">
             <Button
               type="button"
               variant="outline"
-              className="w-full shrink-0 gap-2 rounded-lg sm:w-auto"
-              onClick={() => void copyLink()}
-            >
-              <Copy className="size-4 shrink-0" aria-hidden />
-              <span className="min-w-0 truncate">
-                {copied ? t("Copied", "ကူးပြီး") : t("Copy", "ကူးယူ")}
-              </span>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full shrink-0 gap-2 rounded-lg sm:w-auto"
-              onClick={() => void rotateLink()}
+              className="h-11 w-full shrink-0 gap-2 rounded-lg text-sm sm:w-auto sm:px-5"
+              onClick={() => setConfirmRotateOpen(true)}
               disabled={rotatingToken}
             >
               <RefreshCw className={cn("size-4 shrink-0", rotatingToken && "animate-spin")} aria-hidden />
@@ -204,79 +172,96 @@ export function ShareCard({ username, shareToken }: ShareCardProps) {
               </span>
             </Button>
           </div>
-        </div>
 
-        <Separator />
+          <div
+            ref={cardRef}
+            className="rounded-2xl border border-border/80 bg-muted/30 p-6 text-center shadow-none sm:p-8"
+          >
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">SecretGift</p>
+            <p className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-[1.65rem]">@{username}</p>
+            <button
+              type="button"
+              onClick={() => void saveQr()}
+              disabled={downloading}
+              className="mx-auto mt-5 inline-flex rounded-xl border border-border bg-background p-3.5 shadow-sm transition-colors hover:bg-muted/40 disabled:opacity-70"
+              title={t("Click QR to save image", "QR ကိုနှိပ်ပြီး ပုံကို သိမ်းပါ")}
+            >
+              <QRCodeSVG value={shareUrl} size={QR_SIZE} includeMargin />
+            </button>
+            <button
+              type="button"
+              onClick={() => void copyLink()}
+              className="mt-5 w-full break-all text-left font-mono text-sm leading-relaxed text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+              title={t("Click to copy link", "Link ကိုကူးယူရန် နှိပ်ပါ")}
+            >
+              {shareUrl}
+            </button>
+            {copied ? (
+              <p className="mt-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                {t("Copied to clipboard", "Clipboard သို့ ကူးယူပြီး")}
+              </p>
+            ) : null}
+          </div>
 
-        <div className="flex flex-col gap-4 px-5 pb-6 sm:px-6">
-          <p className="font-heading text-base text-foreground">
-            {t("Actions", "လုပ်ဆောင်ချက်များ")}
-          </p>
-          <div className="flex min-w-0 flex-col gap-3">
-            <Card className={actionCardClass}>
-              <button
-                type="button"
-                className={cn(actionTriggerClass, "text-foreground")}
-                onClick={() => void downloadCard()}
-                disabled={downloading}
-              >
-                <Download className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-                <span className="min-w-0 flex-1 space-y-1">
-                  <span className="block font-heading text-base leading-snug text-foreground">
-                    {t("Download card", "Card ဒေါင်းလုပ်")}
-                  </span>
-                  <span className="block text-sm leading-relaxed text-muted-foreground">
-                    {t("PNG image with QR", "QR ပါ PNG ပုံ")}
-                  </span>
-                </span>
-              </button>
-            </Card>
-
-            <Card className={cn(actionCardClass, "bg-secondary/10 ring-0")}>
-              <button
-                type="button"
-                className={cn(actionTriggerClass, "text-foreground hover:bg-secondary/25")}
-                onClick={() => void shareLink()}
-              >
-                <Share2 className="mt-0.5 size-4 shrink-0 text-foreground" aria-hidden />
-                <span className="min-w-0 flex-1 space-y-1">
-                  <span className="block font-heading text-base leading-snug text-foreground">
-                    {t("Share link", "Link မျှဝေ")}
-                  </span>
-                  <span className="block text-sm leading-relaxed text-muted-foreground">
-                    {t("System share or clipboard", "စနစ် share သို့မဟုတ် clipboard")}
-                  </span>
-                </span>
-              </button>
-            </Card>
-
-            <Card className={actionCardClass}>
-              <Link
-                href={sharePath}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(actionTriggerClass, "text-foreground no-underline")}
-              >
-                <ExternalLink className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-                <span className="min-w-0 flex-1 space-y-1">
-                  <span className="block font-heading text-base leading-snug text-foreground">
-                    {t("Open public page", "Public page ဖွင့်")}
-                  </span>
-                  <span className="block text-sm leading-relaxed text-muted-foreground">
-                    {t("Preview as visitors see it", "ဧည့်သည်များ မြင်သည့်အတိုင်း")}
-                  </span>
-                </span>
-              </Link>
-            </Card>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full rounded-lg text-sm"
+              onClick={() => void shareLink()}
+            >
+              {t("Share link", "Link မျှဝေ")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full rounded-lg text-sm"
+              onClick={() => void saveQr()}
+              disabled={downloading}
+            >
+              {downloading ? t("Saving…", "သိမ်းနေသည်…") : t("Save QR", "QR သိမ်းရန်")}
+            </Button>
           </div>
         </div>
 
         {error ? (
-          <p className="border-t border-border bg-destructive/5 px-5 py-4 text-center text-sm text-destructive sm:px-6">
+          <p className="border-t border-border bg-destructive/5 px-6 py-5 text-center text-sm leading-relaxed text-destructive sm:px-8">
             {error}
           </p>
         ) : null}
       </DialogContent>
+
+      <AlertDialog open={confirmRotateOpen} onOpenChange={setConfirmRotateOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("Regenerate profile link?", "Profile link အသစ်ပြန်ထုတ်မလား?")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                "Your current shared link will stop working immediately. Anyone with the old link will no longer be able to open your page.",
+                "လက်ရှိမျှဝေထားသော link သည် ချက်ချင်းအလုပ်မလုပ်တော့ပါ။ link အဟောင်းရှိသူများသည် သင့်စာမျက်နှာကို မဖွင့်နိုင်တော့ပါ။",
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button">{t("Cancel", "ပယ်ဖျက်")}</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                setConfirmRotateOpen(false);
+                void rotateLink();
+              }}
+              disabled={rotatingToken}
+            >
+              {rotatingToken
+                ? t("Regenerating…", "ပြန်ထုတ်နေသည်…")
+                : t("Regenerate", "အသစ်ပြန်ထုတ်")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

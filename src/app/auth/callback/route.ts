@@ -5,6 +5,7 @@ import { createServerClient } from "@supabase/ssr";
 import { ensureProfileForAuthUser } from "@/lib/profile-bootstrap";
 import { BLOCKED_ACCOUNT_ERROR, isUserBlocked } from "@/lib/access-control";
 import { getSupabasePublicEnv } from "@/lib/supabase/env";
+import { safeRedirectPath } from "@/lib/safe-redirect-path";
 import type { Database } from "@/types/database";
 
 /**
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
   }
 
   const code = requestUrl.searchParams.get("code");
-  const nextPath = requestUrl.searchParams.get("next") ?? "/dashboard";
+  const nextPath = safeRedirectPath(requestUrl.searchParams.get("next"));
 
   if (!code) {
     return NextResponse.redirect(new URL("/auth/sign-in?error=missing_code", origin));

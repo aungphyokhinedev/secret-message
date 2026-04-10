@@ -14,6 +14,7 @@ import {
   Droplets,
   Flower2,
   Inbox,
+  Mail,
   Plus,
   SendHorizontal,
   Share2,
@@ -56,7 +57,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Muted } from "@/components/ui/typography";
-import { deleteSentInteractionAction } from "@/app/dashboard/actions";
+import {
+  deleteSentInteractionAction,
+  getUnreadReceivedCountAction,
+  markInteractionReadAction,
+} from "@/app/dashboard/actions";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/types/database";
 
@@ -101,6 +106,8 @@ export type DashboardClientProps = {
   currentIsPremium: boolean;
   currentDailyUsed: number;
   currentDailyLimit: number;
+  /** Unread received messages (receiver_read_at is null); shown in header. */
+  initialUnreadReceivedCount: number;
   notice?: string | null;
   sentNotice?: string | null;
 };
@@ -116,19 +123,53 @@ export function DashboardClient({
   currentIsPremium,
   currentDailyUsed,
   currentDailyLimit,
+  initialUnreadReceivedCount,
   notice,
   sentNotice,
 }: DashboardClientProps) {
   const { t } = useUiLanguage();
   const router = useRouter();
+  const [unreadReceivedCount, setUnreadReceivedCount] = useState(initialUnreadReceivedCount);
   const [feedTab, setFeedTab] = useState<"received" | "sent">("received");
   const [filterType, setFilterType] = useState<InteractionType | null>(null);
   const [listPage, setListPage] = useState(1);
   const [selectedInteractionId, setSelectedInteractionId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [deleteConfirmForId, setDeleteConfirmForId] = useState<string | null>(null);
+  const [readInteractionIds, setReadInteractionIds] = useState<Set<string>>(new Set());
 
   const activeItems = feedTab === "received" ? items : sentItems;
+
+  useEffect(() => {
+    setUnreadReceivedCount(initialUnreadReceivedCount);
+  }, [initialUnreadReceivedCount]);
+
+  useEffect(() => {
+    const tick = async () => {
+      const result = await getUnreadReceivedCountAction();
+      if (result.ok) {
+        setUnreadReceivedCount(result.count);
+      }
+    };
+    const intervalId = window.setInterval(tick, 30_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  /** Deep link from public profile header: /dashboard#dashboard-interaction-feed */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== "#dashboard-interaction-feed") return;
+    setFeedTab("received");
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        document.getElementById("dashboard-interaction-feed")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    });
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+  }, []);
 
   useEffect(() => {
     setFilterType(null);
@@ -176,6 +217,35 @@ export function DashboardClient({
     setListPage(Math.min(totalPages, Math.max(1, next)));
   }
 
+  function openInteraction(id: string) {
+    setSelectedInteractionId(id);
+    if (feedTab === "received") {
+      const row = items.find((r) => r.id === id);
+      const wasUnread = Boolean(
+        row && !row.receiver_read_at && !readInteractionIds.has(id),
+      );
+      setReadInteractionIds((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+      if (wasUnread) {
+        setUnreadReceivedCount((c) => Math.max(0, c - 1));
+      }
+      void markInteractionReadAction(id);
+    }
+  }
+
+  function scrollToInboxFeed() {
+    setFeedTab("received");
+    window.requestAnimationFrame(() => {
+      document.getElementById("dashboard-interaction-feed")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }
+
   function openDeleteConfirm(interactionId: string) {
     setDeleteConfirmForId(interactionId);
   }
@@ -208,23 +278,25 @@ export function DashboardClient({
         isPremium={currentIsPremium}
         dailyUsed={currentDailyUsed}
         dailyLimit={currentDailyLimit}
+        unreadReceivedCount={unreadReceivedCount}
+        onInboxClick={scrollToInboxFeed}
       />
 
-      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <Card className="overflow-hidden rounded-xl border border-border bg-card shadow-sm ring-0">
-          <div className="space-y-6 px-4 py-6 sm:px-6">
-          <div className="space-y-5">
+          <div className="space-y-6 px-5 py-6 sm:px-6 sm:py-8">
+          <div className="space-y-4 sm:space-y-5">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Online Thingyan
             </p>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-[1.75rem]">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-[1.85rem]">
                 {t("Interactions", "အပြန်အလှန်များ")}
               </h1>
               <Button
                 type="button"
-                className="h-10 w-full shrink-0 gap-2 rounded-lg sm:w-auto"
+                className="h-10 w-full shrink-0 gap-2 rounded-lg px-4 sm:w-auto"
                 onClick={() => window.dispatchEvent(new Event("secretgift:open-share-panel"))}
               >
                 <Plus className="size-4" aria-hidden />
@@ -239,17 +311,17 @@ export function DashboardClient({
             >
               <TabsList
                 variant="default"
-                className="grid !h-auto min-h-12 w-full min-w-0 grid-cols-2 gap-1 rounded-xl border border-border/80 bg-muted/40 p-1 shadow-inner"
+                className="grid !h-auto min-h-12 w-full min-w-0 grid-cols-2 gap-1.5 rounded-lg border border-border/70 bg-muted/35 p-1 shadow-inner"
               >
                 <TabsTrigger
                   value="received"
                   className={cn(
-                    "relative gap-2 rounded-lg px-2 py-2.5 text-sm font-semibold sm:min-h-11 sm:px-3",
+                    "relative gap-2 rounded-md px-3 py-2.5 text-xs font-semibold sm:min-h-11 sm:px-4 sm:text-sm",
                     "data-active:bg-card data-active:text-foreground data-active:shadow-sm",
                     "dark:data-active:bg-background/80",
                   )}
                 >
-                  <Inbox className="size-4 shrink-0 opacity-90" aria-hidden />
+                  <Inbox className="size-4 shrink-0 opacity-90 sm:size-[1.125rem]" aria-hidden />
                   <span className="min-w-0 flex-1 truncate text-left">
                     {t("Received", "လက်ခံမှု")}
                   </span>
@@ -267,12 +339,12 @@ export function DashboardClient({
                 <TabsTrigger
                   value="sent"
                   className={cn(
-                    "relative gap-2 rounded-lg px-2 py-2.5 text-sm font-semibold sm:min-h-11 sm:px-3",
+                    "relative gap-2 rounded-md px-3 py-2.5 text-xs font-semibold sm:min-h-11 sm:px-4 sm:text-sm",
                     "data-active:bg-card data-active:text-foreground data-active:shadow-sm",
                     "dark:data-active:bg-background/80",
                   )}
                 >
-                  <SendHorizontal className="size-4 shrink-0 opacity-90" aria-hidden />
+                  <SendHorizontal className="size-4 shrink-0 opacity-90 sm:size-[1.125rem]" aria-hidden />
                   <span className="min-w-0 flex-1 truncate text-left">
                     {t("Sent", "ပို့မှု")}
                   </span>
@@ -303,9 +375,9 @@ export function DashboardClient({
             </p>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-5 sm:space-y-6">
             {activeNotice ? (
-              <Card className="border-amber-500/25 bg-amber-500/5 py-3 shadow-none ring-0">
+              <Card className="border-amber-500/25 bg-amber-500/5 py-2.5 shadow-none ring-0">
                 <CardContent className="py-0 text-xs leading-relaxed text-foreground">
                   {activeNotice}
                 </CardContent>
@@ -314,13 +386,13 @@ export function DashboardClient({
 
             {hasNoMessagesInTab ? (
                 <Card className="border-border bg-muted/40 shadow-none ring-0">
-                  <CardHeader>
+                  <CardHeader className="space-y-1.5 pb-3">
                     <CardTitle className="font-heading text-base">
                       {feedTab === "received"
                         ? t("No gifts or messages yet", "လက်ဆောင်နှင့် စာများ မရရှိသေးပါ")
                         : t("Nothing sent yet", "မည်သည့်အရာမျှ မပို့ရသေးပါ")}
                     </CardTitle>
-                    <CardDescription className="text-sm leading-relaxed">
+                    <CardDescription className="text-xs leading-relaxed sm:text-sm">
                       {feedTab === "received"
                         ? t(
                             "Share your profile link so friends can open your page and send splashes, gifts, and messages.",
@@ -338,7 +410,7 @@ export function DashboardClient({
                         type="button"
                         variant="outline"
                         onClick={() => window.dispatchEvent(new Event("secretgift:open-share-panel"))}
-                        className="gap-2 rounded-lg"
+                        className="h-9 gap-1.5 rounded-lg"
                       >
                         <Share2 className="h-4 w-4 shrink-0" aria-hidden />
                         {t("Share profile", "Profile မျှဝေရန်")}
@@ -348,7 +420,7 @@ export function DashboardClient({
                 </Card>
             ) : (
               <>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                     {ALL_TYPES.map((type) => {
                       const active = filterType === type;
                       const Icon = TYPE_ICONS[type];
@@ -366,29 +438,31 @@ export function DashboardClient({
                             className={cn(
                               "w-full gap-0 py-0 transition-colors",
                               active
-                                ? "ring-2 ring-primary ring-offset-2 ring-offset-background bg-accent/60 shadow-none"
+                                ? "ring-2 ring-primary ring-offset-1 ring-offset-background bg-accent/55 shadow-none"
                                 : "shadow-none ring-1 ring-border bg-card hover:bg-muted/50",
                             )}
                           >
-                            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2 pt-4">
+                              <CardHeader className="flex flex-row items-start justify-between space-y-0 px-3.5 pb-1.5 pt-3.5">
                               <CardTitle className="text-left text-sm font-medium leading-tight text-muted-foreground">
                                 {TYPE_META[type].short}
                               </CardTitle>
                               {active ? (
                                 <CardAction>
                                   <span
-                                    className="inline-flex size-6 items-center justify-center rounded-full border-2 border-primary bg-background text-primary"
+                                    className="inline-flex size-5 items-center justify-center rounded-full border-2 border-primary bg-background text-primary sm:size-6"
                                     aria-hidden
                                   >
-                                    <Check className="size-3.5" strokeWidth={2.5} />
+                                    <Check className="size-3 sm:size-3.5" strokeWidth={2.5} />
                                   </span>
                                 </CardAction>
                               ) : (
-                                <Icon className="size-4 text-muted-foreground" aria-hidden />
+                                <Icon className="size-3.5 text-muted-foreground sm:size-4" aria-hidden />
                               )}
                             </CardHeader>
-                            <CardContent className="pb-4 pt-0">
-                              <p className="text-2xl font-bold tabular-nums text-foreground">{counts[type]}</p>
+                            <CardContent className="px-3.5 pb-4 pt-0">
+                              <p className="text-2xl font-bold tabular-nums leading-none text-foreground sm:text-3xl">
+                                {counts[type]}
+                              </p>
                             </CardContent>
                           </Card>
                         </Button>
@@ -396,18 +470,21 @@ export function DashboardClient({
                     })}
                 </div>
 
-                <div className="space-y-3">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-sm font-medium text-foreground">
+                <div className="space-y-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                      <p className="text-base font-medium text-foreground">
                         {t("Interaction feed", "Interaction စာရင်း")}
                       </p>
-                      <Muted className="text-xs sm:text-right">
+                      <Muted className="text-sm sm:text-right">
                         {feedTab === "sent"
                           ? t(
                               "Click a row for details. Use delete to remove from your sent list.",
                               "အသေးစိတ် အတွက် အတန်းကို နှိပ်ပါ။ ပို့မှု စာရင်းမှ ဖျက်ရန် ဖျက်ခလုတ်သုံးပါ။",
                             )
-                          : t("Click a row to open the animation.", "Animation ဖွင့်ရန် အတန်းကို နှိပ်ပါ။")}
+                          : t(
+                              "Open a row to reveal the gift and message — not shown in the list.",
+                              "လက်ဆောင်နှင့် စာကို အတန်းကိုဖွင့်မှသာ မြင်ရပါမည်။ စာရင်းတွင် မပြပါ။",
+                            )}
                       </Muted>
                     </div>
 
@@ -422,6 +499,11 @@ export function DashboardClient({
                           receiverById[selectedInteraction.receiver_id]
                             ? receiverById[selectedInteraction.receiver_id].username
                             : currentUsername
+                        }
+                        peerEyebrow={
+                          feedTab === "received"
+                            ? t("Sender", "ပို့သူ")
+                            : t("Recipient", "လက်ခံသူ")
                         }
                         senderLabel={
                           feedTab === "received"
@@ -454,25 +536,34 @@ export function DashboardClient({
                       />
                 ) : null}
 
-                <Card className="overflow-hidden border border-border p-0 shadow-none ring-0">
-                      <ScrollArea className="h-[min(55vh,28rem)]">
+                <Card
+                  id="dashboard-interaction-feed"
+                  className="scroll-mt-24 overflow-hidden border border-border p-0 shadow-none ring-0"
+                >
+                      <ScrollArea className="h-[min(56vh,30rem)]">
                         <Table>
                           <TableHeader>
                             <TableRow className="hover:bg-transparent">
-                              <TableHead className="w-[200px] pl-4">
+                              <TableHead className="h-12 w-[200px] pl-5 align-middle text-sm">
                                 {feedTab === "received"
                                   ? t("Sender", "ပို့သူ")
                                   : t("Recipient", "လက်ခံသူ")}
                               </TableHead>
-                              <TableHead className="w-[100px]">{t("Type", "အမျိုးအစား")}</TableHead>
-                              <TableHead className="min-w-[200px]">
-                                {t("Message", "စာ")}
-                              </TableHead>
-                              <TableHead className="w-[180px] text-right pr-4">
+                              {feedTab === "sent" ? (
+                                <>
+                                  <TableHead className="h-12 w-[100px] align-middle text-sm">
+                                    {t("Type", "အမျိုးအစား")}
+                                  </TableHead>
+                                  <TableHead className="h-12 min-w-[200px] align-middle text-sm">
+                                    {t("Message", "စာ")}
+                                  </TableHead>
+                                </>
+                              ) : null}
+                              <TableHead className="h-12 w-[180px] pr-5 text-right align-middle text-sm">
                                 {t("Time", "အချိန်")}
                               </TableHead>
                               {feedTab === "sent" ? (
-                                <TableHead className="w-14 text-center pr-4">
+                                <TableHead className="h-12 w-14 pr-5 text-center align-middle">
                                   <span className="sr-only">{t("Actions", "လုပ်ဆောင်ချက်များ")}</span>
                                 </TableHead>
                               ) : null}
@@ -482,8 +573,8 @@ export function DashboardClient({
                             {pagedItems.length === 0 ? (
                               <TableRow className="hover:bg-transparent">
                                 <TableCell
-                                  colSpan={feedTab === "sent" ? 5 : 4}
-                                  className="h-24 text-center text-muted-foreground"
+                                  colSpan={feedTab === "sent" ? 5 : 2}
+                                  className="h-28 py-8 text-center text-muted-foreground"
                                 >
                                   {t(
                                     "No interactions match your filters.",
@@ -505,39 +596,77 @@ export function DashboardClient({
                                     ? t("Someone", "တစ်စုံတစ်ယောက်")
                                     : t("Unknown", "မသိရှိရ");
                                 const body = (row.message ?? "").trim();
+                                const isRead =
+                                  feedTab !== "received" ||
+                                  Boolean(row.receiver_read_at) ||
+                                  readInteractionIds.has(row.id);
                                 return (
                                   <TableRow
                                     key={row.id}
-                                    className="cursor-pointer"
-                                    onClick={() => setSelectedInteractionId(row.id)}
+                                    className={cn(
+                                      "cursor-pointer align-top [&>td]:py-4",
+                                      feedTab === "received" && !isRead
+                                        ? "bg-primary/5"
+                                        : "",
+                                    )}
+                                    onClick={() => openInteraction(row.id)}
                                   >
-                                    <TableCell className="pl-4">
-                                      <div className="flex items-center gap-2">
+                                    <TableCell className="pl-5">
+                                      <div className="flex items-center gap-3">
                                         <Avatar
                                           src={peer?.avatar_url ?? null}
-                                          size={28}
-                                          className="size-7 shrink-0 ring-1 ring-border"
+                                          size={32}
+                                          className="size-8 shrink-0 ring-1 ring-border"
                                         />
-                                        <span className="truncate font-medium">{who}</span>
+                                        {feedTab === "received" && !isRead ? (
+                                          <span
+                                            className="inline-flex shrink-0 rounded-md bg-primary/10 p-1 ring-1 ring-primary/25 dark:bg-primary/15"
+                                            aria-hidden
+                                          >
+                                            <Mail
+                                              className="dashboard-unread-envelope-icon size-[1.15rem] text-primary sm:size-5"
+                                              strokeWidth={2.25}
+                                            />
+                                          </span>
+                                        ) : null}
+                                        <div className="min-w-0 flex-1">
+                                          <p className="truncate text-sm font-medium leading-tight text-foreground">
+                                            {who}
+                                          </p>
+                                          <p className="mt-1 text-xs text-muted-foreground">
+                                            {feedTab === "received"
+                                              ? t("Tap to open — surprise inside", "ဖွင့်ကြည့်ရန် — အတွင်းမှာ အံ့သြဖွယ်")
+                                              : t("Recipient", "လက်ခံသူ")}
+                                          </p>
+                                        </div>
                                       </div>
                                     </TableCell>
-                                    <TableCell>
-                                      <Badge variant="outline" className="font-normal">
-                                        {TYPE_META[row.type].short}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell className="max-w-[min(40vw,320px)] whitespace-normal text-muted-foreground">
-                                      <span className="line-clamp-2 text-sm">
-                                        {body ||
-                                          t("No message text.", "စာသားမပါရှိပါ။")}
-                                      </span>
-                                    </TableCell>
-                                    <TableCell className="pr-4 text-right text-xs tabular-nums text-muted-foreground">
-                                      <time dateTime={row.created_at}>{formatInteractionTime(row.created_at)}</time>
+                                    {feedTab === "sent" ? (
+                                      <>
+                                        <TableCell>
+                                          <Badge
+                                            variant="outline"
+                                            className="rounded-full border-border/80 bg-muted/30 px-2.5 py-1 text-xs font-normal"
+                                          >
+                                            {TYPE_META[row.type].short}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell className="max-w-[min(42vw,380px)] whitespace-normal">
+                                          <p className="line-clamp-2 text-sm leading-relaxed text-foreground/90 sm:text-[0.9375rem]">
+                                            {body ||
+                                              t("No message text.", "စာသားမပါရှိပါ။")}
+                                          </p>
+                                        </TableCell>
+                                      </>
+                                    ) : null}
+                                    <TableCell className="pr-5 text-right text-xs tabular-nums text-muted-foreground sm:text-sm">
+                                      <time dateTime={row.created_at} className="leading-tight">
+                                        {formatInteractionTime(row.created_at)}
+                                      </time>
                                     </TableCell>
                                     {feedTab === "sent" ? (
                                       <TableCell
-                                        className="w-14 pr-2 text-center"
+                                        className="w-14 pr-4 text-center"
                                         onClick={(e) => e.stopPropagation()}
                                       >
                                         <Button
@@ -565,8 +694,8 @@ export function DashboardClient({
                           </TableBody>
                         </Table>
                       </ScrollArea>
-                      <CardFooter className="flex flex-col gap-3 border-t border-border bg-muted/30 py-3 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-xs text-muted-foreground">
+                      <CardFooter className="flex flex-col gap-3 border-t border-border bg-muted/30 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                        <p className="text-sm text-muted-foreground">
                           {typeFiltered.length === 0
                             ? t("0 interactions", "0 ခု")
                             : t(
@@ -574,12 +703,12 @@ export function DashboardClient({
                                 `${typeFiltered.length} ခုတွင် ${rangeStart}–${rangeEnd}`,
                               )}
                         </p>
-                        <div className="flex items-center gap-1 sm:ml-auto">
+                        <div className="flex items-center gap-1.5 sm:ml-auto">
                           <Button
                             type="button"
                             variant="outline"
                             size="icon"
-                            className="size-8"
+                            className="size-9"
                             onClick={() => changePage(1)}
                             disabled={listPage <= 1}
                             aria-label={t("First page", "ပထမစာမျက်နှာ")}
@@ -590,21 +719,21 @@ export function DashboardClient({
                             type="button"
                             variant="outline"
                             size="icon"
-                            className="size-8"
+                            className="size-9"
                             onClick={() => changePage(listPage - 1)}
                             disabled={listPage <= 1}
                             aria-label={t("Previous page", "အရင်စာမျက်နှာ")}
                           >
                             <ChevronLeft className="size-4" />
                           </Button>
-                          <span className="min-w-[5rem] px-2 text-center text-xs text-muted-foreground">
+                          <span className="min-w-[5rem] px-2 text-center text-sm text-muted-foreground">
                             {listPage} / {totalPages}
                           </span>
                           <Button
                             type="button"
                             variant="outline"
                             size="icon"
-                            className="size-8"
+                            className="size-9"
                             onClick={() => changePage(listPage + 1)}
                             disabled={listPage >= totalPages}
                             aria-label={t("Next page", "နောက်စာမျက်နှာ")}
@@ -615,7 +744,7 @@ export function DashboardClient({
                             type="button"
                             variant="outline"
                             size="icon"
-                            className="size-8"
+                            className="size-9"
                             onClick={() => changePage(totalPages)}
                             disabled={listPage >= totalPages}
                             aria-label={t("Last page", "နောက်ဆုံးစာမျက်နှာ")}

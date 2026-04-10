@@ -47,7 +47,7 @@ export function LandingHeader({ className }: { className?: string }) {
         </nav>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
-          <LanguageSwitcher />
+          <LanguageSwitcher className="border-0 bg-transparent p-0 shadow-none ring-0" />
           <ThemeToggle />
         </div>
       </div>

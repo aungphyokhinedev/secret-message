@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
@@ -14,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { EnvelopeRevealVisual } from "@/components/u/envelope-reveal-visual";
 import { useUiLanguage } from "@/components/providers/ui-language-provider";
 import { profileInitialsFromLabel } from "@/lib/profile-initials";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,8 @@ type InteractionStageCardProps = {
   onClose: () => void;
   type: InteractionType;
   receiverUsername: string;
+  /** Short label above the name (e.g. Sender / Recipient). */
+  peerEyebrow: string;
   senderLabel: string;
   senderAvatarUrl: string | null;
   message: string;
@@ -41,20 +43,23 @@ const TYPE_LABEL: Record<InteractionType, string> = {
   flower: "Flower gift",
 };
 
-/** After last animation frame, delay (ms) before cross-fading to the message. */
-const REVEAL_DELAY_MS = 380;
-
-/** Message layer exit duration (ms) before replay restarts the sprite — keep in sync with CSS transition. */
-const MESSAGE_OUT_MS = 420;
+/** After the last sprite frame, delay (ms) before switching to the envelope. */
+const SPRITE_TO_ENVELOPE_DELAY_MS = 380;
 
 /** Slower playback for a more cinematic feel. */
 const SPRITE_FPS = 2.6;
+
+/** Time envelope stays “closed” before flap opens and the letter slides out (ms). */
+const ENVELOPE_OPEN_DELAY_MS = 700;
+
+type Stage = "sprite" | "envelope";
 
 export function InteractionStageCard({
   open,
   onClose,
   type,
   receiverUsername: _receiverUsername,
+  peerEyebrow,
   senderLabel,
   senderAvatarUrl,
   message,
@@ -66,36 +71,26 @@ export function InteractionStageCard({
   const revealTimerRef = useRef<number | null>(null);
   const [sheetStatus, setSheetStatus] = useState<"loading" | "ready" | "missing">("loading");
   const [replayToken, setReplayToken] = useState(0);
-  /** `animation` = sprite playing in panel; `message` = message visible after animation ends. */
-  const [panelView, setPanelView] = useState<"animation" | "message">("animation");
-  /** True while the message plays its exit animation before replay. */
-  const [isMessageLeaving, setIsMessageLeaving] = useState(false);
+  const [stage, setStage] = useState<Stage>("sprite");
+  const [envelopePhase, setEnvelopePhase] = useState<"sending" | "success">("sending");
 
   const safeMessage = useMemo(() => {
     const trimmed = message.trim();
     return trimmed.length > 0 ? trimmed : t("No message text.", "စာသားမပါရှိပါ။");
   }, [message, t]);
 
-  useEffect(() => {
-    if (sheetStatus === "missing") {
-      setPanelView("message");
-    }
-  }, [sheetStatus]);
-
-  useEffect(() => {
-    if (panelView === "animation") {
-      setIsMessageLeaving(false);
-    }
-  }, [panelView]);
-
-  useEffect(() => {
-    if (open) {
-      setIsMessageLeaving(false);
-    }
-  }, [open]);
-
+  /** Reset to gift animation when dialog opens or a different interaction is shown. */
   useEffect(() => {
     if (!open) return;
+    setStage("sprite");
+    setSheetStatus("loading");
+    setEnvelopePhase("sending");
+    setReplayToken((v) => v + 1);
+  }, [open, type, message]);
+
+  /** Sprite sheet animation (phase 1). */
+  useEffect(() => {
+    if (!open || stage !== "sprite") return;
 
     let cancelled = false;
     let waitCanvasRaf = 0;
@@ -159,9 +154,7 @@ export function InteractionStageCard({
         ctx.fillRect(0, 0, w, h);
 
         ctx.imageSmoothingEnabled = true;
-        /** Pixels to shave off each frame cell in the sprite sheet (removes grid/border lines). */
         const sourceTrim = Math.min(6, Math.max(0, Math.floor(Math.min(frameW, frameH) / 8) - 1));
-        /** Inset on the canvas when drawing (extra crop on screen). */
         const baseDestTrim = Math.min(4, Math.floor(Math.min(w, h) / 32));
         const breathing = Math.sin(overallProgress * Math.PI * 2 + frameProgress * Math.PI) * 0.5 + 0.5;
         const dynamicInset = baseDestTrim + eased * 6 + breathing * 3;
@@ -185,8 +178,8 @@ export function InteractionStageCard({
           if (!hasMarkedEnd) {
             hasMarkedEnd = true;
             revealTimerRef.current = window.setTimeout(() => {
-              if (!cancelled) setPanelView("message");
-            }, REVEAL_DELAY_MS);
+              if (!cancelled) setStage("envelope");
+            }, SPRITE_TO_ENVELOPE_DELAY_MS);
           }
         }
 
@@ -197,7 +190,6 @@ export function InteractionStageCard({
 
       async function loadFirstAvailable() {
         setSheetStatus("loading");
-        setPanelView("animation");
         if (revealTimerRef.current) {
           clearTimeout(revealTimerRef.current);
           revealTimerRef.current = null;
@@ -241,18 +233,31 @@ export function InteractionStageCard({
       window.cancelAnimationFrame(waitCanvasRaf);
       window.cancelAnimationFrame(animRaf);
     };
-  }, [open, type, replayToken]);
+  }, [open, stage, replayToken, type]);
 
-  const animationLayerVisible = panelView === "animation" && sheetStatus !== "missing";
-  const messageShown = panelView === "message" || sheetStatus === "missing";
+  useEffect(() => {
+    if (sheetStatus === "missing") {
+      setStage("envelope");
+    }
+  }, [sheetStatus]);
+
+  /** Envelope + message (phase 2). */
+  useEffect(() => {
+    if (!open || stage !== "envelope") return;
+    setEnvelopePhase("sending");
+    const tmr = window.setTimeout(() => setEnvelopePhase("success"), ENVELOPE_OPEN_DELAY_MS);
+    return () => clearTimeout(tmr);
+  }, [open, stage, replayToken]);
 
   function scheduleReplay() {
-    if (isMessageLeaving || sheetStatus !== "ready") return;
-    setIsMessageLeaving(true);
-    window.setTimeout(() => {
-      setReplayToken((v) => v + 1);
-    }, MESSAGE_OUT_MS);
+    setStage("sprite");
+    setSheetStatus("loading");
+    setReplayToken((v) => v + 1);
   }
+
+  const animationLayerVisible = stage === "sprite" && sheetStatus !== "missing";
+  const showSpriteLoading = stage === "sprite" && sheetStatus === "loading";
+  const showSpriteMissing = stage === "sprite" && sheetStatus === "missing";
 
   return (
     <Dialog
@@ -264,129 +269,129 @@ export function InteractionStageCard({
       <DialogContent
         showCloseButton
         className={cn(
-          "max-h-[min(92vh,800px)] gap-0 overflow-y-auto p-0 sm:max-w-lg",
+          "max-h-[min(92vh,760px)] gap-0 overflow-y-auto overflow-x-hidden p-0 sm:max-w-lg",
           "border border-border bg-card text-card-foreground shadow-sm ring-0",
         )}
       >
-        <DialogHeader className="gap-2 border-b border-border px-5 py-5 pr-12 text-left sm:px-6 sm:pr-14">
-          <div className="flex flex-wrap items-center gap-2">
-            <DialogTitle className="text-xl font-semibold tracking-tight text-foreground">
-              {t("Your gift", "လက်ဆောင်")}
-            </DialogTitle>
-            <Badge variant="secondary" className="font-normal">
+        <DialogHeader className="space-y-2 border-b border-border/60 bg-muted/15 px-6 py-6 pr-12 text-left sm:px-8 sm:py-7 sm:pr-14">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 space-y-2">
+              <DialogTitle className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+                {t("Your gift", "လက်ဆောင်")}
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+                {t(
+                  "Animation plays first — your message appears in the envelope.",
+                  "Animation ပြီးမှ စာအိတ်ထဲတွင် စာကို မြင်ရပါမည်။",
+                )}
+              </DialogDescription>
+            </div>
+            <Badge variant="secondary" className="mt-1 shrink-0 font-normal text-sm">
               {TYPE_LABEL[type]}
             </Badge>
           </div>
-          <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
-            {t(
-              "Watch the animation, then read their message. You can replay anytime.",
-              "Animation ကြည့်ပြီး စာကို ဖတ်ပါ။ ပြန်ဖွင့်ချင်ပါက ပြန်ဖွင့်နိုင်သည်။",
-            )}
-          </DialogDescription>
         </DialogHeader>
 
-        <div className="border-b border-border bg-muted/30 px-5 py-5 sm:px-6">
-          <Card className="gap-0 overflow-hidden border border-border bg-card py-0 shadow-none ring-0">
-            <CardHeader className="flex flex-row items-center gap-3 space-y-0 p-4 pb-3">
-              <Avatar size="default" className="size-10 shrink-0">
-                {senderAvatarUrl ? (
-                  <AvatarImage src={senderAvatarUrl} alt={senderLabel} />
-                ) : null}
-                <AvatarFallback className="text-xs font-medium">
-                  {profileInitialsFromLabel(senderLabel)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1">
-                <CardTitle className="truncate text-base font-semibold leading-tight text-foreground">
-                  {senderLabel}
-                </CardTitle>
-                <p className="mt-0.5 text-xs text-muted-foreground">{t("Message", "စာ")}</p>
-              </div>
-            </CardHeader>
-            <CardContent className="relative p-4 pt-0">
-              <div className="relative min-h-[12rem] overflow-hidden rounded-xl bg-muted/40">
-                {/* Animation layer — fills panel while playing */}
-                <div
-                  className={cn(
-                    "absolute inset-0 z-20 flex items-center justify-center transition-all duration-500 ease-out",
-                    animationLayerVisible
-                      ? "opacity-100"
-                      : "pointer-events-none -translate-y-1 scale-[0.96] opacity-0 blur-[2px]",
-                  )}
-                  aria-hidden={!animationLayerVisible}
-                >
-                  <div className="relative aspect-square h-full max-h-[min(12rem,50vw)] w-full max-w-[min(12rem,50vw)] overflow-hidden rounded-lg">
-                    <canvas
-                      ref={canvasRef}
-                      width={720}
-                      height={720}
-                      className="h-full w-full object-cover"
-                    />
-                    {sheetStatus !== "ready" ? (
-                      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg bg-background/95 px-3 text-center backdrop-blur-sm">
-                        {sheetStatus === "loading" ? (
-                          <>
-                            <Loader2 className="size-7 animate-spin text-primary" aria-hidden />
-                            <p className="text-xs font-medium text-foreground">
-                              {t("Loading animation…", "Animation တင်နေသည်…")}
-                            </p>
-                          </>
-                        ) : (
-                          <p className="text-[0.7rem] leading-relaxed text-muted-foreground">
-                            {t(
-                              `Could not load animation. Add /public/img/${type}.png (or .webp/.jpg) as a 4×4 sprite sheet.`,
-                              `Animation မတင်နိုင်ပါ။ /public/img/${type}.png (သို့ .webp/.jpg) ကို 4×4 sprite sheet အဖြစ် ထည့်ပါ။`,
-                            )}
-                          </p>
+        <div className="space-y-6 px-6 py-6 sm:px-8 sm:py-7">
+          <div className="flex items-center gap-4 rounded-2xl border border-border/70 bg-muted/25 px-4 py-3.5 sm:px-5 sm:py-4">
+            <Avatar size="default" className="size-10 shrink-0 ring-1 ring-border/60">
+              {senderAvatarUrl ? <AvatarImage src={senderAvatarUrl} alt={senderLabel} /> : null}
+              <AvatarFallback className="text-xs font-medium">
+                {profileInitialsFromLabel(senderLabel)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-muted-foreground">{peerEyebrow}</p>
+              <p className="mt-0.5 truncate text-base font-semibold leading-tight text-foreground">
+                {senderLabel}
+              </p>
+            </div>
+          </div>
+
+          <div className="relative min-h-[13rem] overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-b from-muted/50 to-muted/25 sm:min-h-[14rem]">
+            {/* Phase 1: sprite */}
+            <div
+              className={cn(
+                "absolute inset-0 z-20 flex items-center justify-center transition-all duration-500 ease-out",
+                animationLayerVisible
+                  ? "opacity-100"
+                  : "pointer-events-none -translate-y-1 scale-[0.96] opacity-0 blur-[2px]",
+              )}
+              aria-hidden={!animationLayerVisible}
+            >
+              <div className="relative aspect-square h-full max-h-[min(13rem,56vw)] w-full max-w-[min(13rem,56vw)] overflow-hidden rounded-xl">
+                <canvas
+                  ref={canvasRef}
+                  width={720}
+                  height={720}
+                  className="h-full w-full object-cover"
+                />
+                {stage === "sprite" && sheetStatus !== "ready" ? (
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg bg-background/95 px-3 text-center backdrop-blur-sm">
+                    {showSpriteLoading ? (
+                      <>
+                        <Loader2 className="size-7 animate-spin text-primary" aria-hidden />
+                        <p className="text-xs font-medium text-foreground">
+                          {t("Loading animation…", "Animation တင်နေသည်…")}
+                        </p>
+                      </>
+                    ) : showSpriteMissing ? (
+                      <p className="text-[0.7rem] leading-relaxed text-muted-foreground">
+                        {t(
+                          `Could not load animation. Add /public/img/${type}.png (or .webp/.jpg) as a 4×4 sprite sheet.`,
+                          `Animation မတင်နိုင်ပါ။ /public/img/${type}.png (သို့ .webp/.jpg) ကို 4×4 sprite sheet အဖြစ် ထည့်ပါ။`,
                         )}
-                      </div>
+                      </p>
                     ) : null}
                   </div>
-                </div>
-
-                {/* Message layer — fades/slides in after animation; plays out before replay */}
-                <div
-                  className={cn(
-                    "relative z-10 flex min-h-[12rem] flex-col justify-start px-4 py-5 text-left ease-out",
-                    !messageShown
-                      ? "pointer-events-none translate-y-4 opacity-0 duration-500"
-                      : isMessageLeaving
-                        ? "pointer-events-none translate-y-2 scale-[0.99] opacity-0 blur-[1px] duration-[420ms]"
-                        : "interaction-stage-message-bounce-in translate-y-0 opacity-100 duration-500",
-                  )}
-                >
-                  <p className="text-sm leading-relaxed text-foreground [text-wrap:pretty]">
-                    {safeMessage}
-                  </p>
-                </div>
-
-                {sheetStatus === "ready" && panelView === "message" && !isMessageLeaving && (
-                  <div className="absolute right-3 bottom-3 z-30">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      className="h-8 gap-1.5 rounded-full px-3 shadow-sm"
-                      onClick={scheduleReplay}
-                      aria-label={t("Replay animation", "Animation ပြန်ဖွင့်")}
-                    >
-                      <RotateCcw className="size-3.5" aria-hidden />
-                      {t("Replay", "ပြန်ဖွင့်")}
-                    </Button>
-                  </div>
-                )}
+                ) : null}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+
+            {/* Phase 2: envelope + message on paper */}
+            <div
+              className={cn(
+                "relative z-10 flex min-h-[13rem] flex-col items-center justify-center px-4 py-6 transition-all duration-500 ease-out sm:min-h-[14rem] sm:px-5 sm:py-7",
+                stage === "envelope"
+                  ? "translate-y-0 opacity-100"
+                  : "pointer-events-none translate-y-3 opacity-0",
+              )}
+            >
+              {stage === "envelope" ? (
+                <EnvelopeRevealVisual
+                  key={replayToken}
+                  phase={envelopePhase}
+                  purpose="read"
+                  messageText={safeMessage}
+                />
+              ) : null}
+            </div>
+          </div>
+
+          {stage === "envelope" && envelopePhase === "success" ? (
+            <div className="flex justify-center pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="default"
+                className="h-11 gap-2 rounded-full px-6 text-sm shadow-sm"
+                onClick={scheduleReplay}
+                aria-label={t("Replay animation", "Animation ပြန်ဖွင့်")}
+              >
+                <RotateCcw className="size-4" aria-hidden />
+                {t("Replay", "ပြန်ဖွင့်")}
+              </Button>
+            </div>
+          ) : null}
         </div>
 
         {onDeleteSent ? (
-          <div className="border-t border-border px-5 py-4 sm:px-6">
+          <div className="border-t border-border/80 bg-muted/10 px-6 py-5 sm:px-8">
             <Button
               type="button"
               variant="outline"
               disabled={deleteSentPending}
-              className="w-full gap-2 border-destructive/35 text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-destructive/50 dark:hover:bg-destructive/20"
+              className="h-11 w-full gap-2 border-destructive/30 text-sm text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-destructive/45 dark:hover:bg-destructive/20"
               onClick={() => onDeleteSent()}
             >
               <Trash2 className="size-4 shrink-0" aria-hidden />

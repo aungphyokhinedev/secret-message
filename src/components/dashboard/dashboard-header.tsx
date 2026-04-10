@@ -1,6 +1,6 @@
 "use client";
 
-import { MoreVertical, Star } from "lucide-react";
+import { Mail, MoreVertical, Star } from "lucide-react";
 import { useState } from "react";
 
 import { LanguageSwitcher } from "@/components/common/language-switcher";
@@ -24,6 +24,8 @@ type DashboardHeaderProps = {
   isPremium: boolean;
   dailyUsed: number;
   dailyLimit: number;
+  unreadReceivedCount: number;
+  onInboxClick: () => void;
 };
 
 export function DashboardHeader({
@@ -33,6 +35,8 @@ export function DashboardHeader({
   isPremium,
   dailyUsed,
   dailyLimit,
+  unreadReceivedCount,
+  onInboxClick,
 }: DashboardHeaderProps) {
   const { t } = useUiLanguage();
   const [accountOpen, setAccountOpen] = useState(false);
@@ -41,15 +45,47 @@ export function DashboardHeader({
   return (
     <>
       <header className="sticky top-0 z-50 border-b border-border bg-card shadow-sm">
-        <div className="mx-auto flex max-w-6xl flex-row items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <DashboardProfileStrip currentUsername={currentUsername} currentAvatarUrl={userAvatarUrl} />
-          <nav className="flex shrink-0 items-center gap-2" aria-label="Account">
+        <div className="mx-auto flex max-w-6xl items-center px-4 py-4 sm:px-6">
+          <div className="min-w-0 flex-1">
+            <DashboardProfileStrip currentUsername={currentUsername} currentAvatarUrl={userAvatarUrl} />
+          </div>
+          <nav className="ml-4 flex shrink-0 items-center gap-2 sm:gap-2.5" aria-label="Account">
             <div
-              className="hidden rounded-md border border-border/70 bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground sm:block"
+              className="hidden rounded-md border border-border/70 bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground sm:block"
               title={t("Daily sending usage", "နေ့စဉ်ပို့မှု အသုံးပြုမှု")}
             >
               {t(`Today ${dailyUsed}/${dailyLimit}`, `ယနေ့ ${dailyUsed}/${dailyLimit}`)}
             </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="relative size-9 shrink-0 hover:bg-muted/60"
+              onClick={onInboxClick}
+              aria-label={
+                unreadReceivedCount > 0
+                  ? t(
+                      `${unreadReceivedCount} unread message${unreadReceivedCount === 1 ? "" : "s"}`,
+                      `မဖတ်ရသေးသော စာ ${unreadReceivedCount} ခု`,
+                    )
+                  : t("Open received messages", "လက်ခံမှု စာရင်းကို ဖွင့်ရန်")
+              }
+              title={
+                unreadReceivedCount > 0
+                  ? t(
+                      `${unreadReceivedCount} new — open inbox`,
+                      `အသစ် ${unreadReceivedCount} ခု — စာရင်းမှ ဖွင့်ပါ`,
+                    )
+                  : t("Received messages", "လက်ခံမှု စာရင်း")
+              }
+            >
+              <Mail className="size-4 text-muted-foreground" strokeWidth={2} aria-hidden />
+              {unreadReceivedCount > 0 ? (
+                <span className="absolute -right-0.5 -top-0.5 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-destructive px-1 text-[0.65rem] font-bold leading-none text-destructive-foreground shadow-sm ring-2 ring-card">
+                  {unreadReceivedCount > 99 ? "99+" : unreadReceivedCount}
+                </span>
+              ) : null}
+            </Button>
             <LanguageSwitcher className="border-0 bg-transparent p-0 shadow-none ring-0" />
             <Button
               type="button"
@@ -86,7 +122,13 @@ export function DashboardHeader({
           </nav>
         </div>
       </header>
-      <DashboardAccountDialog open={accountOpen} onOpenChange={setAccountOpen} userEmail={userEmail} />
+      <DashboardAccountDialog
+        open={accountOpen}
+        onOpenChange={setAccountOpen}
+        userEmail={userEmail}
+        currentUsername={currentUsername}
+        userAvatarUrl={userAvatarUrl}
+      />
       <Dialog open={premiumInfoOpen} onOpenChange={setPremiumInfoOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

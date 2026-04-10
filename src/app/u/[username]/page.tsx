@@ -1,11 +1,13 @@
-import { ArrowDown } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 
+import { PublicProfileHeaderNav } from "@/components/u/public-profile-header-nav";
 import { PublicProfileSendForm } from "@/components/u/public-profile-send-form";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { H3, Muted, Small } from "@/components/ui/typography";
 import { BLOCKED_ACCOUNT_ERROR } from "@/lib/access-control";
-import { emailLocalPart, profileInitialsFromLabel } from "@/lib/profile-initials";
+import { profileInitialsFromLabel } from "@/lib/profile-initials";
+import { countSentInteractionsSinceUtcDayStart } from "@/lib/sent-interactions-daily-count";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -53,111 +55,63 @@ export default async function PublicUserPage({ params }: PublicUserPageProps) {
   const dayStartIso = new Date(
     Date.UTC(startOfUtcDay.getUTCFullYear(), startOfUtcDay.getUTCMonth(), startOfUtcDay.getUTCDate()),
   ).toISOString();
-  const { count: sentTodayCount } = await supabase
-    .from("interactions_feed")
-    .select("id", { count: "exact", head: true })
-    .eq("sender_id", user.id)
-    .gte("created_at", dayStartIso);
   const dailyLimit = senderProfile?.is_premium ? 300 : 50;
-  const dailyUsed = sentTodayCount ?? 0;
+  const dailyUsed = await countSentInteractionsSinceUtcDayStart(supabase, dayStartIso, user.id);
 
   const isSelf = Boolean(user.id === profile.id);
+  if (isSelf) {
+    redirect("/dashboard");
+  }
 
-  const senderHandle =
-    senderProfile?.username ?? emailLocalPart(user.email ?? undefined) ?? null;
-  const senderDisplay = senderHandle ? `@${senderHandle}` : "You";
-  const senderInitialsSource = senderHandle ?? emailLocalPart(user.email ?? undefined) ?? "user";
-  const senderAvatarAlt = senderHandle
-    ? `Avatar for ${senderDisplay}`
-    : "Your avatar";
+  const { count: unreadReceivedCount } = await supabase
+    .from("interactions_feed")
+    .select("id", { count: "exact", head: true })
+    .eq("receiver_id", user.id)
+    .is("receiver_read_at", null);
 
   return (
-    <main className="min-h-screen bg-muted/40 text-foreground">
-      <div className="mx-auto max-w-xl px-4 py-6 sm:px-6 sm:py-8">
-        <Card className="overflow-hidden rounded-xl border border-border bg-card shadow-sm ring-0">
-          <CardHeader className="space-y-0 px-4 pt-6 text-center sm:px-6 sm:pt-8">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              SecretGift Profile
-            </p>
-            <h1 className="mt-1 scroll-m-0 text-balance text-2xl font-bold tracking-tight text-foreground">
-              Send Gift To Your Friend
-            </h1>
-            <p className="mt-1 text-pretty text-sm leading-relaxed text-muted-foreground">
-              Send a Thingyan splash, soot mark, or a small gift to @{profile.username}.
-            </p>
+    <main className="min-h-screen bg-gradient-to-b from-muted/30 via-background to-background text-foreground">
+      <header className="sticky top-0 z-50 border-b border-border/80 bg-card/80 shadow-sm backdrop-blur-md">
+        <PublicProfileHeaderNav unreadReceivedCount={unreadReceivedCount ?? 0} />
+      </header>
+
+      <div className="mx-auto max-w-xl px-4 py-8 sm:px-6 sm:py-12">
+        <Card className="overflow-hidden border-border/60 bg-card shadow-sm ring-1 ring-border/40">
+          <CardHeader className="space-y-6 px-5 pb-2 pt-7 sm:px-8 sm:pt-8">
+            <div className="space-y-2.5">
+              <Small className="text-[0.65rem] uppercase tracking-[0.14em] text-muted-foreground">
+                Public profile
+              </Small>
+              <H3 className="scroll-m-0 border-0 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+                Send Your Message
+              </H3>
+              <Muted className="max-w-md text-sm leading-[1.6]">
+                Pick a splash or gift, add a short message, and send it. They will see it on their home
+                feed.
+              </Muted>
+            </div>
+
+            <div className="flex items-center gap-4 rounded-xl border border-border/60 bg-muted/25 px-4 py-4 sm:px-5">
+              <Avatar size="lg" className="size-14 shrink-0 ring-2 ring-background sm:size-16">
+                {profile.avatar_url?.trim() ? (
+                  <AvatarImage src={profile.avatar_url} alt={`Avatar for @${profile.username}`} />
+                ) : null}
+                <AvatarFallback className="text-sm font-medium">
+                  {profileInitialsFromLabel(profile.username)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 space-y-0.5">
+                <Small className="text-[0.65rem] uppercase tracking-wide text-muted-foreground">
+                  Recipient
+                </Small>
+                <p className="truncate text-lg font-semibold tracking-tight text-foreground">
+                  @{profile.username}
+                </p>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-6 px-4 pb-6 pt-2 sm:px-6 sm:pb-8">
-            {isSelf ? (
-              <div className="flex w-full items-center justify-start gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
-                <Avatar size="lg" className="shrink-0">
-                  {profile.avatar_url?.trim() ? (
-                    <AvatarImage
-                      src={profile.avatar_url}
-                      alt={`Avatar for @${profile.username}`}
-                    />
-                  ) : null}
-                  <AvatarFallback className="text-xs font-medium">
-                    {profileInitialsFromLabel(profile.username)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 text-left">
-                  <span className="block truncate text-sm font-medium text-foreground">
-                    @{profile.username}
-                  </span>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">Your profile</p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex w-full flex-col gap-2">
-                <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <Avatar size="lg" className="shrink-0">
-                      {senderProfile?.avatar_url?.trim() ? (
-                        <AvatarImage src={senderProfile.avatar_url} alt={senderAvatarAlt} />
-                      ) : null}
-                      <AvatarFallback className="text-xs font-medium">
-                        {profileInitialsFromLabel(senderInitialsSource)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 text-left">
-                      <span className="block truncate text-sm font-medium text-foreground">
-                        {senderDisplay}
-                      </span>
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground">You send</p>
-                    </div>
-                  </div>
-                </div>
 
-                <div className="flex justify-center py-1" aria-hidden>
-                  <span className="inline-flex items-center justify-center rounded-full border border-border bg-background p-2 text-muted-foreground shadow-sm">
-                    <ArrowDown className="h-4 w-4" />
-                  </span>
-                </div>
-
-                <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <Avatar size="lg" className="shrink-0">
-                      {profile.avatar_url?.trim() ? (
-                        <AvatarImage
-                          src={profile.avatar_url}
-                          alt={`Avatar for @${profile.username}`}
-                        />
-                      ) : null}
-                      <AvatarFallback className="text-xs font-medium">
-                        {profileInitialsFromLabel(profile.username)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 text-left">
-                      <span className="block truncate text-sm font-medium text-foreground">
-                        @{profile.username}
-                      </span>
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground">Receives</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
+          <CardContent className="space-y-0 px-5 pb-8 pt-2 sm:px-8 sm:pb-10">
             <PublicProfileSendForm
               receiverUsername={profile.username}
               isSelf={isSelf}
