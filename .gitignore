@@ -40,6 +40,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Serwist (webpack / generated assets, if present)
+public/sw*
+public/swe-worker*
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

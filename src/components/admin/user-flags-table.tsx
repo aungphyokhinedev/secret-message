@@ -45,7 +45,7 @@ export function UserFlagsTable({ rows }: { rows: UserRow[] }) {
                   <input
                     type="checkbox"
                     checked={row.is_premium}
-                    onChange={(e) => updateLocal(row.id, { is_premium: e.target.checked })}
+                    onChange={() => updateLocal(row.id, { is_premium: !row.is_premium })}
                   />
                   premium
                 </label>
@@ -55,7 +55,7 @@ export function UserFlagsTable({ rows }: { rows: UserRow[] }) {
                   <input
                     type="checkbox"
                     checked={row.is_blocked}
-                    onChange={(e) => updateLocal(row.id, { is_blocked: e.target.checked })}
+                    onChange={() => updateLocal(row.id, { is_blocked: !row.is_blocked })}
                   />
                   blocked
                 </label>
