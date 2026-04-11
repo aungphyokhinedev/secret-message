@@ -148,8 +148,8 @@ export function ShareCard({ username, shareToken }: ShareCardProps) {
           <DialogDescription className="mt-2">
             <Muted className="text-base leading-relaxed">
             {t(
-              "Friends can scan the QR code or use your link to open your profile and send messages and gifts.",
-              "သူငယ်ချင်းများ QR code ကို scan လုပ်ပါ သို့မဟုတ် သင့် link ဖြင့်ဝင်ပြီး စာနှင့် လက်ဆောင်များ ပို့နိုင်ပါသည်။",
+              "Friends can scan the QR code or use your link to open your profile. They sign in with Google to send messages and gifts.",
+              "သူငယ်ချင်းများက QR code ကို scan လုပ်ပါ သို့မဟုတ် သင့် link ဖြင့် သင့်ပရိုဖိုင်ကို ဖွင့်နိုင်သည်။ စာနှင့် လက်ဆောင်များ ပို့ရန် Google ဖြင့် ဝင်ရောက်ရပါသည်။",
             )}
             </Muted>
           </DialogDescription>
@@ -181,8 +181,8 @@ export function ShareCard({ username, shareToken }: ShareCardProps) {
               </li>
               <li>
                 {t(
-                  "They open your page, pick a splash or gift, write a short message, and send. You’ll see it in Dashboard → Received.",
-                  "သူတို့ သင့်စာမျက်နှာကို ဖွင့်ပြီး ရေပက် သို့မဟုတ် လက်ဆောင်ရွေးကာ စာတိုရေးပို့ပါ။ သင်သည် ဒက်ရှ်ဘုတ် → လက်ခံမှု တွင် မြင်ရပါမည်။",
+                  "After they sign in, they pick a splash or gift, write a short message, and send. You’ll see it in Dashboard → Received.",
+                  "သူတို့ ဝင်ရောက်ပြီးနောက် ရေပက် သို့မဟုတ် လက်ဆောင်ရွေး၊ စာတိုရေးပို့ကာနိုင်သည်။ သင်သည် ဒက်ရှ်ဘုတ် → လက်ခံမှု တွင် မြင်ရပါမည်။",
                 )}
               </li>
             </ol>

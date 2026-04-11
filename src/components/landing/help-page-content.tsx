@@ -34,8 +34,8 @@ export function HelpPageContent() {
     {
       title: t("Copy and share your public link", "သင့် public လင့်ကို ကူးပြီး မျှဝေပါ"),
       body: t(
-        "Your profile URL looks like /u/yourname (your username). Share it anywhere—chat, social, QR—so friends can open your page and send you Thingyan interactions.",
-        "သင့် profile URL သည် /u/yourname ပုံစံဖြစ်သည်။ ချက်တင်၊ လူမှုကွန်ရက်၊ QR စသဖြင့် မျှဝေပါ။ သူငယ်ချင်းများက သင့်စာမျက်နှာကို ဖွင့်ပြီး သင်္ကြန် အပြန်အလှန်များ ပို့နိုင်သည်။",
+        "Your profile URL looks like /u/yourname (your username). Share it anywhere—chat, social, QR—so friends can open your page, sign in, and send you Thingyan interactions.",
+        "သင့် profile URL သည် /u/yourname ပုံစံဖြစ်သည်။ ချက်တင်၊ လူမှုကွန်ရက်၊ QR စသဖြင့် မျှဝေပါ။ သူငယ်ချင်းများက သင့်စာမျက်နှာကို ဖွင့်၊ ဝင်ရောက်ပြီးမှ သင်္ကြန် အပြန်အလှန်များ ပို့နိုင်သည်။",
       ),
     },
     {

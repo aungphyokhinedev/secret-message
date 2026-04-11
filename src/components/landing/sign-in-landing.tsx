@@ -27,8 +27,8 @@ export function SignInLanding({ afterAuth, urlError }: SignInLandingProps) {
     {
       title: t("Public profile", "လူသိရှင်ကြား ပရိုဖိုင်"),
       body: t(
-        "You get one shareable link. Friends open it to send water splashes, soot, food, flowers, and a short message.",
-        "သင့်တွင် မျှဝေရမည့် လင့်တစ်ခုရှိသည်။ သူငယ်ချင်းများက ဖွင့်ပြီး ရေပက်၊ အိုးမဲသုတ်၊ အစားအစာ၊ ပန်းနှင့် စာတို ပို့နိုင်သည်။",
+        "You get one shareable link. Friends open it, sign in with Google, then send water splashes, soot, food, flowers, and a short message.",
+        "သင့်တွင် မျှဝေရမည့် လင့်တစ်ခုရှိသည်။ သူငယ်ချင်းများက ဖွင့်၊ Google ဖြင့် ဝင်ရောက်ပြီးမှ ရေပက်၊ အိုးမဲသုတ်၊ အစားအစာ၊ ပန်းနှင့် စာတို ပို့နိုင်သည်။",
       ),
     },
     {

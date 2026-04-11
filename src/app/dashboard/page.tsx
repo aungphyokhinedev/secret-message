@@ -175,6 +175,7 @@ export default async function DashboardPage() {
         currentDailyUsed={currentDailyUsed}
         currentDailyLimit={currentDailyLimit}
         initialUnreadReceivedCount={unreadReceivedCount ?? 0}
+        shareToken={myShareLink?.share_token ?? null}
         notice={feedNotice}
         sentNotice={sentNotice}
       />

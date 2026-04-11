@@ -45,7 +45,7 @@ export function DashboardHeader({
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-border bg-card shadow-sm">
+      <header className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-6xl items-center px-4 py-4 sm:px-6">
           <div className="min-w-0 flex-1">
             <DashboardProfileStrip currentUsername={currentUsername} currentAvatarUrl={userAvatarUrl} />

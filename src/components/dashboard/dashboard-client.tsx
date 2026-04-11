@@ -15,9 +15,8 @@ import {
   Flower2,
   Inbox,
   Mail,
-  Plus,
+  Send,
   SendHorizontal,
-  Share2,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
@@ -25,6 +24,7 @@ import {
 import { Avatar } from "@/components/common/avatar";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { InteractionStageCard } from "@/components/dashboard/interaction-stage-card";
+import { DashboardShareStickyPanel } from "@/components/dashboard/dashboard-share-sticky-panel";
 import { useUiLanguage } from "@/components/providers/ui-language-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -154,6 +154,8 @@ export type DashboardClientProps = {
   currentDailyLimit: number;
   /** Unread received messages (receiver_read_at is null); shown in header. */
   initialUnreadReceivedCount: number;
+  /** Public share token for /p/:token link; null uses /u/:username. */
+  shareToken: string | null;
   notice?: string | null;
   sentNotice?: string | null;
 };
@@ -170,6 +172,7 @@ export function DashboardClient({
   currentDailyUsed,
   currentDailyLimit,
   initialUnreadReceivedCount,
+  shareToken,
   notice,
   sentNotice,
 }: DashboardClientProps) {
@@ -326,40 +329,41 @@ export function DashboardClient({
         inboxLinkPageEnter && "dashboard-inbox-arrival-page",
       )}
     >
-      <DashboardHeader
-        currentUsername={currentUsername}
-        userEmail={userEmail}
-        userAvatarUrl={userAvatarUrl}
-        isPremium={currentIsPremium}
-        dailyUsed={currentDailyUsed}
-        dailyLimit={currentDailyLimit}
-        unreadReceivedCount={unreadReceivedCount}
-        onInboxClick={scrollToInboxFeed}
-      />
+      <div className="sticky top-0 z-50 border-b border-border/70 bg-background/95 shadow-md backdrop-blur-md supports-[backdrop-filter]:bg-background/90">
+        <DashboardHeader
+          currentUsername={currentUsername}
+          userEmail={userEmail}
+          userAvatarUrl={userAvatarUrl}
+          isPremium={currentIsPremium}
+          dailyUsed={currentDailyUsed}
+          dailyLimit={currentDailyLimit}
+          unreadReceivedCount={unreadReceivedCount}
+          onInboxClick={scrollToInboxFeed}
+        />
+        <DashboardShareStickyPanel username={currentUsername} shareToken={shareToken} />
+      </div>
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <Card className="overflow-hidden rounded-xl border border-border bg-card shadow-sm ring-0">
           <div className="space-y-6 px-5 py-6 sm:px-6 sm:py-8">
           <div className="space-y-4 sm:space-y-5">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Online Thingyan
+              {t("Main dashboard", "ပင်မဒက်ရှ်ဘုတ်")}
             </p>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-[1.85rem]">
-                {t("Interactions", "အပြန်အလှန်များ")}
+              <h1 className="shrink-0 text-2xl font-bold tracking-tight text-foreground sm:text-[1.85rem]">
+                {t("Online Thingyan", "အွန်လိုင်း သင်္ကြန်")}
               </h1>
               <Button
                 type="button"
-                className={cn(
-                  "share-profile-open-btn--solid relative h-10 w-full shrink-0 gap-2 overflow-hidden rounded-lg px-4 sm:w-auto",
-                )}
+                variant="outline"
+                title={t("QR code, download image, and more", "QR code၊ ပုံ download နှင့် အခြား")}
+                className="h-10 w-full shrink-0 gap-2 px-4 sm:h-10 sm:w-auto"
                 onClick={() => window.dispatchEvent(new Event("secretgift:open-share-panel"))}
               >
-                <span className="relative z-[1] inline-flex items-center gap-2">
-                  <Plus className="share-profile-open-btn__icon size-4" aria-hidden />
-                  {t("Share profile", "Profile မျှဝေရန်")}
-                </span>
+                <Send className="size-4 shrink-0" aria-hidden />
+                {t("Share profile", "Profile မျှဝေရန်")}
               </Button>
             </div>
 
@@ -454,8 +458,8 @@ export function DashboardClient({
                     <CardDescription className="text-xs leading-relaxed sm:text-sm">
                       {feedTab === "received"
                         ? t(
-                            "Share your profile link so friends can open your page and send splashes, gifts, and messages.",
-                            "သင့် profile link ကို မျှဝေပါ။ သူငယ်ချင်းများက ရေပက်၊ လက်ဆောင်နှင့် စာများ ပို့နိုင်ပါသည်။",
+                            "Share your profile link so friends can open your page, sign in, and send splashes, gifts, and messages.",
+                            "သင့် profile link ကို မျှဝေပါ။ သူငယ်ချင်းများက သင့်စာမျက်နှာကို ဖွင့်ပြီး ဝင်ရောက်ပြီးမှ ရေပက်၊ လက်ဆောင်နှင့် စာများ ပို့နိုင်ပါသည်။",
                           )
                         : t(
                             "Open a friend's profile link while signed in, choose a splash or gift, add a message, and send. Sent items will appear here.",
@@ -473,7 +477,7 @@ export function DashboardClient({
                           "share-profile-open-btn--outline h-9 gap-1.5 rounded-lg border-2 font-medium",
                         )}
                       >
-                        <Share2 className="h-4 w-4 shrink-0" aria-hidden />
+                        <Send className="h-4 w-4 shrink-0" aria-hidden />
                         {t("Share profile", "Profile မျှဝေရန်")}
                       </Button>
                     </CardFooter>
@@ -482,7 +486,7 @@ export function DashboardClient({
             ) : (
               <>
                 <div
-                  className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-2.5"
+                  className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-3"
                   role="toolbar"
                   aria-label={t("Filter by interaction type", "Interaction အမျိုးအစားဖြင့် စစ်ပါ")}
                 >
@@ -511,54 +515,55 @@ export function DashboardClient({
                         >
                           <span
                             className={cn(
-                              "flex w-full items-center gap-2 overflow-hidden rounded-lg border-2 border-transparent px-2.5 py-2 text-left transition-all duration-200 sm:gap-2.5 sm:px-3 sm:py-2.5",
+                              "relative flex w-full items-center gap-2.5 overflow-hidden rounded-xl border-2 border-transparent p-2.5 text-left shadow-sm transition-all duration-200 sm:gap-3 sm:p-3",
                               "hover:shadow-md hover:brightness-[1.02] dark:hover:brightness-110",
+                              "ring-1 ring-foreground/5",
                               palette.card,
                               active &&
-                                cn("shadow-sm brightness-100 dark:brightness-100", palette.cardActive),
+                                cn("shadow-md brightness-100 dark:brightness-100", palette.cardActive),
                             )}
                           >
-                            <span className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
-                              {active ? (
-                                <span
-                                  className={cn(
-                                    "inline-flex size-7 shrink-0 items-center justify-center rounded-md border bg-background/90 shadow-sm backdrop-blur-sm sm:size-8",
-                                    type === "water_splash" &&
-                                      "border-sky-500/80 text-sky-600 dark:border-sky-400 dark:text-sky-300",
-                                    type === "black_soot" &&
-                                      "border-violet-600/80 text-violet-700 dark:border-violet-400 dark:text-violet-300",
-                                    type === "food" &&
-                                      "border-amber-600/80 text-amber-700 dark:border-amber-400 dark:text-amber-300",
-                                    type === "flower" &&
-                                      "border-fuchsia-600/80 text-fuchsia-700 dark:border-fuchsia-400 dark:text-fuchsia-300",
-                                  )}
-                                  aria-hidden
-                                >
-                                  <Check className="size-3.5" strokeWidth={2.5} />
-                                </span>
-                              ) : (
-                                <span
-                                  className={cn(
-                                    "inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-black/5 bg-background/40 dark:border-white/10",
-                                    palette.iconMuted,
-                                  )}
-                                  aria-hidden
-                                >
-                                  <Icon className="size-3.5 opacity-95 sm:size-4" />
-                                </span>
-                              )}
+                            {active ? (
                               <span
+                                className="absolute right-1.5 top-1.5 inline-flex size-6 items-center justify-center rounded-full border bg-background/95 text-primary shadow-sm backdrop-blur-sm dark:bg-background/90 sm:right-2 sm:top-2 sm:size-7"
+                                aria-hidden
+                              >
+                                <Check className="size-3.5 sm:size-4" strokeWidth={2.5} />
+                              </span>
+                            ) : null}
+                            <div
+                              className={cn(
+                                "inline-flex size-11 shrink-0 items-center justify-center rounded-xl border bg-background/75 shadow-inner backdrop-blur-sm sm:size-12",
+                                type === "water_splash" &&
+                                  "border-sky-400/35 text-sky-600 dark:border-sky-500/40 dark:text-sky-300",
+                                type === "black_soot" &&
+                                  "border-violet-400/35 text-violet-700 dark:border-violet-400/45 dark:text-violet-300",
+                                type === "food" &&
+                                  "border-amber-400/35 text-amber-700 dark:border-amber-400/45 dark:text-amber-300",
+                                type === "flower" &&
+                                  "border-fuchsia-400/35 text-fuchsia-700 dark:border-fuchsia-400/45 dark:text-fuchsia-300",
+                              )}
+                              aria-hidden
+                            >
+                              <Icon className="size-[1.35rem] stroke-[1.7] sm:size-6 sm:stroke-[1.65]" />
+                            </div>
+                            <div className="min-w-0 flex-1 pr-5 sm:pr-6">
+                              <p
                                 className={cn(
-                                  "min-w-0 truncate text-[0.6875rem] font-semibold leading-tight tracking-tight sm:text-xs",
+                                  "truncate font-heading text-[0.8125rem] font-semibold leading-tight sm:text-sm",
                                   palette.title,
                                 )}
+                                title={TYPE_META[type].label}
                               >
                                 {TYPE_META[type].short}
-                              </span>
-                            </span>
+                              </p>
+                              <p className="mt-0.5 hidden line-clamp-1 text-[0.65rem] leading-snug text-muted-foreground sm:block sm:text-xs">
+                                {TYPE_META[type].label}
+                              </p>
+                            </div>
                             <span
                               className={cn(
-                                "shrink-0 text-lg font-bold tabular-nums leading-none tracking-tight sm:text-xl",
+                                "shrink-0 self-center text-xl font-bold tabular-nums leading-none tracking-tight sm:text-2xl",
                                 palette.count,
                               )}
                             >
@@ -901,6 +906,7 @@ export function DashboardClient({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </div>
   );
 }
