@@ -1,14 +1,11 @@
+"use client";
+
 import type { Database } from "@/types/database";
 import { Avatar } from "@/components/common/avatar";
+import { useUiLanguage } from "@/components/providers/ui-language-provider";
+import { formatRelativeTimeAgo } from "@/lib/format-relative-time";
 
 type InteractionRow = Database["public"]["Views"]["interactions_feed"]["Row"];
-
-const TYPE_LABEL: Record<Database["public"]["Enums"]["interaction_type"], string> = {
-  water_splash: "Water splash",
-  black_soot: "Black soot",
-  food: "Sweet (mont lone)",
-  flower: "Flower (padauk)",
-};
 
 type ReceivedInteractionsProps = {
   items: InteractionRow[];
@@ -17,6 +14,8 @@ type ReceivedInteractionsProps = {
 };
 
 export function ReceivedInteractions({ items, senderById, notice }: ReceivedInteractionsProps) {
+  const { language } = useUiLanguage();
+
   return (
     <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
       <h2 className="text-xl font-semibold">Received splashes &amp; gifts</h2>
@@ -40,7 +39,7 @@ export function ReceivedInteractions({ items, senderById, notice }: ReceivedInte
                 ? senderById.get(row.sender_id)!
                 : null;
             const who = sender ? `@${sender.username}` : "Someone";
-            const when = new Date(row.created_at).toLocaleString();
+            const when = formatRelativeTimeAgo(row.created_at, language);
 
             return (
               <li
@@ -50,9 +49,9 @@ export function ReceivedInteractions({ items, senderById, notice }: ReceivedInte
                 <div className="flex flex-wrap items-center gap-2 text-xs text-cyan-300">
                   <span className="font-medium text-white">{who}</span>
                   <span className="text-slate-500">·</span>
-                  <span>{TYPE_LABEL[row.type]}</span>
-                  <span className="text-slate-500">·</span>
-                  <time dateTime={row.created_at}>{when}</time>
+                  <time dateTime={row.created_at} title={row.created_at}>
+                    {when}
+                  </time>
                 </div>
                 <Avatar src={sender?.avatar_url ?? null} size={32} className="mt-2 h-8 w-8" />
                 <p className="mt-2 text-sm text-slate-200">

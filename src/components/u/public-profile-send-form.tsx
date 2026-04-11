@@ -82,6 +82,7 @@ export function PublicProfileSendForm({
       setSendOverlayPhase("success");
       setSendSuccessPlayId((n) => n + 1);
       setUsedCount((n) => Math.min(dailyLimit, n + 1));
+      window.dispatchEvent(new CustomEvent("secretgift:public-profile-message-sent"));
     }
   }, [pending, state, dailyLimit]);
 

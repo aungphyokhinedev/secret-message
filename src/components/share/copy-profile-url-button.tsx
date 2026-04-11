@@ -1,27 +1,28 @@
 "use client";
 
-import { Link2 } from "lucide-react";
+import { Copy } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useUiLanguage } from "@/components/providers/ui-language-provider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export type QuickShareProfileButtonProps = {
-  username: string;
-  shareToken: string | null;
-  /** Smaller control for the collapsed dashboard share strip. */
-  compact?: boolean;
-};
-
 const TOAST_MS = 3200;
 
-/** Primary “copy profile link” CTA (e.g. dashboard sticky strip). */
-export function QuickShareProfileButton({
+export type CopyProfileUrlButtonProps = {
+  username: string;
+  shareToken: string | null;
+  /** Emphasis ring/pulse (e.g. after visitor sends a message on public profile). */
+  pulseHighlight?: boolean;
+  className?: string;
+};
+
+export function CopyProfileUrlButton({
   username,
   shareToken,
-  compact = false,
-}: QuickShareProfileButtonProps) {
+  pulseHighlight = false,
+  className,
+}: CopyProfileUrlButtonProps) {
   const { t } = useUiLanguage();
   const [toast, setToast] = useState<{ message: string; variant: "success" | "error" } | null>(null);
 
@@ -58,25 +59,26 @@ export function QuickShareProfileButton({
     }
   }
 
-  const defaultTitle = t("Copy profile link to share with friends", "သူငယ်ချင်းများနှင့် မျှဝေရန် profile လင့်ကို copy");
+  const label = t("Copy URL", "URL ကူးရန်");
 
   return (
     <>
       <Button
         type="button"
-        variant="default"
+        variant="outline"
         onClick={() => void handleCopy()}
-        title={defaultTitle}
+        title={t("Copy your profile URL to the clipboard", "သင့် profile URL ကို clipboard သို့ ကူးယူပါ")}
         className={cn(
-          "relative min-w-0 gap-2 rounded-lg border border-primary/20 bg-primary font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90",
-          compact
-            ? "h-9 px-3 text-xs sm:h-9 sm:min-w-[11.5rem] sm:px-4 sm:text-sm"
-            : "h-10 px-4 text-sm sm:h-10 sm:min-w-[13.5rem] sm:px-5",
+          "relative h-9 min-w-0 flex-1 gap-2 rounded-lg px-3 text-xs font-semibold shadow-sm transition-[box-shadow,transform,border-color,background-color] duration-300 ease-out sm:text-sm",
+          "border-border bg-background text-foreground hover:bg-muted/60",
+          pulseHighlight &&
+            "z-[1] scale-[1.02] border-primary/50 bg-primary/[0.12] shadow-md ring-2 ring-primary/35 motion-safe:animate-pulse",
+          className,
         )}
-        aria-label={t("Copy profile link", "Profile လင့်ကို copy")}
+        aria-label={label}
       >
-        <Link2 className="size-4 shrink-0" strokeWidth={2.25} aria-hidden />
-        <span>{t("Copy profile link", "Profile လင့်ကို copy")}</span>
+        <Copy className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+        <span className="truncate">{label}</span>
       </Button>
 
       {toast ? (

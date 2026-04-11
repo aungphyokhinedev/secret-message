@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import type { ReactNode } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import {
@@ -16,9 +15,7 @@ import {
   Flower2,
   Inbox,
   Mail,
-  RefreshCw,
   SendHorizontal,
-  Settings,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
@@ -27,9 +24,9 @@ import { Avatar } from "@/components/common/avatar";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { InteractionStageCard } from "@/components/dashboard/interaction-stage-card";
 import { DashboardShareStickyPanel } from "@/components/dashboard/dashboard-share-sticky-panel";
+import { OpenShareProfilePanelButton } from "@/components/share/open-share-profile-panel-button";
 import { useNavigationProgress } from "@/components/providers/navigation-progress-provider";
 import { useUiLanguage } from "@/components/providers/ui-language-provider";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -65,6 +62,7 @@ import {
   getUnreadReceivedCountAction,
   markInteractionReadAction,
 } from "@/app/dashboard/actions";
+import { formatRelativeTimeAgo } from "@/lib/format-relative-time";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/types/database";
 
@@ -133,47 +131,6 @@ const TYPE_SUMMARY_STYLE: Record<
   },
 };
 
-function formatInteractionTime(iso: string) {
-  try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
-    return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-  } catch {
-    return iso;
-  }
-}
-
-function OpenShareProfilePanelButton({
-  children,
-  className,
-  size = "sm",
-}: {
-  children: ReactNode;
-  className?: string;
-  size?: "sm" | "default";
-}) {
-  const { t } = useUiLanguage();
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size={size}
-      className={cn(
-        "gap-1.5 font-medium",
-        size === "sm" && "h-9 px-3 text-xs",
-        size === "default" && "h-10 px-3 text-sm",
-        className,
-      )}
-      title={t("QR code, download image, and more", "QR code၊ ပုံ download နှင့် အခြား")}
-      onClick={() => window.dispatchEvent(new Event("secretgift:open-share-panel"))}
-      aria-label={t("Share profile — QR, link, and more", "Profile မျှဝေရန် — QR၊ လင့်")}
-    >
-      <Settings className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
-      {children}
-    </Button>
-  );
-}
-
 export type DashboardClientProps = {
   items: InteractionRow[];
   sentItems: InteractionRow[];
@@ -209,7 +166,7 @@ export function DashboardClient({
   notice,
   sentNotice,
 }: DashboardClientProps) {
-  const { t } = useUiLanguage();
+  const { t, language } = useUiLanguage();
   const router = useRouter();
   const navigationProgress = useNavigationProgress();
   const refreshProgressSession = useRef(false);
@@ -387,6 +344,41 @@ export function DashboardClient({
     }
   }
 
+  const mainScrollSentinelRef = useRef<HTMLDivElement>(null);
+  const [shareStripCompact, setShareStripCompact] = useState(false);
+
+  useEffect(() => {
+    const sentinel = mainScrollSentinelRef.current;
+    if (!sentinel) return;
+
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const scrollY = window.scrollY;
+      if (scrollY < 8) {
+        setShareStripCompact(false);
+        return;
+      }
+      const top = sentinel.getBoundingClientRect().top;
+      /** When main content sits near the top of the viewport, user has scrolled past the hero share strip. */
+      setShareStripCompact(top < 96);
+    };
+
+    const onScrollOrResize = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener("scroll", onScrollOrResize, { passive: true });
+    window.addEventListener("resize", onScrollOrResize, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScrollOrResize);
+      window.removeEventListener("resize", onScrollOrResize);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, []);
+
   return (
     <div
       className={cn(
@@ -405,52 +397,40 @@ export function DashboardClient({
           unreadReceivedCount={unreadReceivedCount}
           inboxRefreshPending={isFeedRefreshing}
           onInboxClick={scrollToInboxFeed}
+          onFeedRefresh={() => refreshInteractionFeed()}
+          feedRefreshPending={isFeedRefreshing}
         />
-        <DashboardShareStickyPanel username={currentUsername} shareToken={shareToken} />
+        <DashboardShareStickyPanel
+          username={currentUsername}
+          shareToken={shareToken}
+          compact={shareStripCompact}
+        />
       </div>
 
       <main className="mx-auto w-full max-w-6xl px-0 py-4 sm:px-8 sm:py-7">
+        <div
+          ref={mainScrollSentinelRef}
+          className="pointer-events-none h-px w-full shrink-0"
+          aria-hidden
+        />
         <Card className="overflow-hidden rounded-none border-x-0 border-border bg-card shadow-none ring-0 sm:rounded-xl sm:border-x sm:shadow-sm">
           <div className="border-b border-border/70 bg-muted/25 px-5 py-5 sm:px-8">
             <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-                <div className="min-w-0 space-y-1">
-                  <h2 className="font-heading text-lg font-semibold tracking-tight text-foreground sm:text-[1.15rem]">
-                    {t("Messages", "စာများ")}
-                  </h2>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
-                    {feedTab === "received"
-                      ? t(
-                          "Splashes, gifts, and notes friends send you. Filter by type below.",
-                          "သူငယ်ချင်းများ ပို့သော ရေပက်၊ လက်ဆောင်နှင့် စာများ။ အောက်တွင် အမျိုးအစားဖြင့် စစ်ပါ။",
-                        )
-                      : t(
-                          "What you've sent to others. Filter by type below.",
-                          "သင်အခြားသူများထံ ပို့သော အပြန်အလှန်များ။ အောက်တွင် အမျိုးအစားဖြင့် စစ်ပါ။",
-                        )}
-                  </p>
-                </div>
-                <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-9 gap-1.5 px-3 text-xs font-medium"
-                    disabled={isFeedRefreshing}
-                    aria-busy={isFeedRefreshing}
-                    title={t("Reload messages from the server", "ဆာဗာမှ စာများကို ပြန်တင်ရန်")}
-                    onClick={() => refreshInteractionFeed()}
-                  >
-                    <RefreshCw
-                      className={cn("size-3.5 shrink-0", isFeedRefreshing && "animate-spin")}
-                      aria-hidden
-                    />
-                    {t("Refresh", "ပြန်တင်ရန်")}
-                  </Button>
-                  <OpenShareProfilePanelButton size="sm">
-                    {t("Profile", "ပရိုဖိုင်")}
-                  </OpenShareProfilePanelButton>
-                </div>
+              <div className="min-w-0 space-y-1">
+                <h2 className="font-heading text-lg font-semibold tracking-tight text-foreground sm:text-[1.15rem]">
+                  {t("Messages", "စာများ")}
+                </h2>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {feedTab === "received"
+                    ? t(
+                        "Splashes, gifts, and notes friends send you. Filter by type below.",
+                        "သူငယ်ချင်းများ ပို့သော ရေပက်၊ လက်ဆောင်နှင့် စာများ။ အောက်တွင် အမျိုးအစားဖြင့် စစ်ပါ။",
+                      )
+                    : t(
+                        "What you've sent to others. Filter by type below.",
+                        "သင်အခြားသူများထံ ပို့သော အပြန်အလှန်များ။ အောက်တွင် အမျိုးအစားဖြင့် စစ်ပါ။",
+                      )}
+                </p>
               </div>
 
               <Tabs
@@ -671,9 +651,7 @@ export function DashboardClient({
                             : currentUsername
                         }
                         peerEyebrow={
-                          feedTab === "received"
-                            ? t("Sender", "ပို့သူ")
-                            : t("Recipient", "လက်ခံသူ")
+                          feedTab === "received" ? t("Sender", "ပို့သူ") : undefined
                         }
                         senderLabel={
                           feedTab === "received"
@@ -714,27 +692,24 @@ export function DashboardClient({
                   )}
                 >
                       <ScrollArea className="h-[min(56vh,30rem)]">
-                        <Table>
+                        <Table className="table-fixed">
                           <TableHeader>
                             <TableRow className="hover:bg-transparent">
-                              <TableHead className="h-12 w-[200px] pl-5 align-middle text-sm">
+                              <TableHead className="h-12 w-[32%] min-w-0 max-w-[280px] pl-5 align-middle text-sm">
                                 {feedTab === "received"
                                   ? t("Sender", "ပို့သူ")
-                                  : t("Recipient", "လက်ခံသူ")}
+                                  : t("To", "သို့")}
                               </TableHead>
                               {feedTab === "sent" ? (
-                                <>
-                                  <TableHead className="h-12 w-[100px] align-middle text-sm">
-                                    {t("Type", "အမျိုးအစား")}
-                                  </TableHead>
-                                  <TableHead className="h-12 min-w-[200px] align-middle text-sm">
-                                    {t("Message", "စာ")}
-                                  </TableHead>
-                                </>
+                                <TableHead className="h-12 min-w-0 align-middle text-sm">
+                                  {t("Message", "စာ")}
+                                </TableHead>
                               ) : null}
-                              <TableHead className="h-12 w-[180px] pr-5 text-right align-middle text-sm">
-                                {t("Time", "အချိန်")}
-                              </TableHead>
+                              {feedTab === "received" ? (
+                                <TableHead className="h-12 w-[100px] shrink-0 pr-5 text-right align-middle text-sm sm:w-[120px]">
+                                  {t("Time", "အချိန်")}
+                                </TableHead>
+                              ) : null}
                               {feedTab === "sent" ? (
                                 <TableHead className="h-12 w-14 pr-5 text-center align-middle">
                                   <span className="sr-only">{t("Actions", "လုပ်ဆောင်ချက်များ")}</span>
@@ -746,7 +721,7 @@ export function DashboardClient({
                             {pagedItems.length === 0 ? (
                               <TableRow className="hover:bg-transparent">
                                 <TableCell
-                                  colSpan={feedTab === "sent" ? 5 : 2}
+                                  colSpan={feedTab === "sent" ? 3 : 2}
                                   className="h-28 py-8 text-center text-muted-foreground"
                                 >
                                   {t(
@@ -784,8 +759,8 @@ export function DashboardClient({
                                     )}
                                     onClick={() => openInteraction(row.id)}
                                   >
-                                    <TableCell className="pl-5">
-                                      <div className="flex items-center gap-3">
+                                    <TableCell className="max-w-0 min-w-0 overflow-hidden pl-5">
+                                      <div className="flex min-w-0 items-center gap-3">
                                         <Avatar
                                           src={peer?.avatar_url ?? null}
                                           size={32}
@@ -803,40 +778,45 @@ export function DashboardClient({
                                           </span>
                                         ) : null}
                                         <div className="min-w-0 flex-1">
-                                          <p className="truncate text-sm font-medium leading-tight text-foreground">
+                                          <p
+                                            className="truncate text-sm font-medium leading-tight text-foreground"
+                                            title={who}
+                                          >
                                             {who}
                                           </p>
-                                          <p className="mt-1 text-xs text-muted-foreground">
-                                            {feedTab === "received"
-                                              ? t("Tap to open — surprise inside", "ဖွင့်ကြည့်ရန် — အတွင်းမှာ အံ့သြဖွယ်")
-                                              : t("Recipient", "လက်ခံသူ")}
-                                          </p>
+                                          {feedTab === "received" ? (
+                                            <p className="mt-1 text-xs text-muted-foreground">
+                                              {t(
+                                                "Tap to open — surprise inside",
+                                                "ဖွင့်ကြည့်ရန် — အတွင်းမှာ အံ့သြဖွယ်",
+                                              )}
+                                            </p>
+                                          ) : null}
                                         </div>
                                       </div>
                                     </TableCell>
                                     {feedTab === "sent" ? (
-                                      <>
-                                        <TableCell>
-                                          <Badge
-                                            variant="outline"
-                                            className="rounded-full border-border/80 bg-muted/30 px-2.5 py-1 text-xs font-normal"
-                                          >
-                                            {TYPE_META[row.type].short}
-                                          </Badge>
-                                        </TableCell>
-                                        <TableCell className="max-w-[min(42vw,380px)] whitespace-normal">
-                                          <p className="line-clamp-2 text-sm leading-relaxed text-foreground/90 sm:text-[0.9375rem]">
-                                            {body ||
-                                              t("No message text.", "စာသားမပါရှိပါ။")}
-                                          </p>
-                                        </TableCell>
-                                      </>
+                                      <TableCell className="min-w-0 max-w-[min(42vw,380px)] whitespace-normal">
+                                        <p className="line-clamp-2 text-sm leading-relaxed text-foreground/90 sm:text-[0.9375rem]">
+                                          {body ||
+                                            t("No message text.", "စာသားမပါရှိပါ။")}
+                                        </p>
+                                        <time
+                                          dateTime={row.created_at}
+                                          className="mt-1 block text-xs tabular-nums leading-tight text-muted-foreground"
+                                          title={row.created_at}
+                                        >
+                                          {formatRelativeTimeAgo(row.created_at, language)}
+                                        </time>
+                                      </TableCell>
                                     ) : null}
-                                    <TableCell className="pr-5 text-right text-xs tabular-nums text-muted-foreground sm:text-sm">
-                                      <time dateTime={row.created_at} className="leading-tight">
-                                        {formatInteractionTime(row.created_at)}
-                                      </time>
-                                    </TableCell>
+                                    {feedTab === "received" ? (
+                                      <TableCell className="pr-5 text-right text-xs tabular-nums text-muted-foreground sm:text-sm">
+                                        <time dateTime={row.created_at} className="leading-tight" title={row.created_at}>
+                                          {formatRelativeTimeAgo(row.created_at, language)}
+                                        </time>
+                                      </TableCell>
+                                    ) : null}
                                     {feedTab === "sent" ? (
                                       <TableCell
                                         className="w-14 pr-4 text-center"

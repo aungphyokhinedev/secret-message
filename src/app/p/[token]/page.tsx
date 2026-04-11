@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 
+import { ShareCard } from "@/components/share/share-card";
 import { PublicProfileHeaderNav } from "@/components/u/public-profile-header-nav";
+import { PublicProfileVisitorOwnLink } from "@/components/u/public-profile-visitor-own-link";
 import { PublicProfileSendForm } from "@/components/u/public-profile-send-form";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -69,14 +71,27 @@ export default async function PublicTokenPage({ params }: PublicTokenPageProps) 
     .eq("receiver_id", user.id)
     .is("receiver_read_at", null);
 
+  const { data: visitorShareLink } = await supabase
+    .from("profile_share_links")
+    .select("share_token")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const visitorUsername = senderProfile?.username ?? "";
+  const visitorShareToken = visitorShareLink?.share_token ?? null;
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-muted/30 via-background to-background text-foreground">
       <header className="sticky top-0 z-50 border-b border-border/80 bg-card/80 shadow-sm backdrop-blur-md">
-        <PublicProfileHeaderNav unreadReceivedCount={unreadReceivedCount ?? 0} />
+        <PublicProfileHeaderNav
+          unreadReceivedCount={unreadReceivedCount ?? 0}
+          showShareOwnProfile={Boolean(visitorUsername)}
+          shareProfileUsername={visitorUsername || null}
+          shareProfileToken={visitorShareToken}
+        />
       </header>
 
       <div className="w-full max-w-none pb-6 pt-0 sm:mx-auto sm:max-w-xl sm:px-6 sm:py-12">
-        <Card className="overflow-hidden rounded-none border-x-0 border-border/60 bg-card shadow-none ring-0 sm:rounded-xl sm:border-x sm:shadow-sm sm:ring-1 sm:ring-border/40">
+        <Card className="overflow-visible rounded-none border-x-0 border-border/60 bg-card shadow-none ring-0 sm:rounded-xl sm:border-x sm:shadow-sm sm:ring-1 sm:ring-border/40">
           <CardHeader className="space-y-0 px-4 pb-2 pt-7 sm:space-y-6 sm:px-8 sm:pt-8">
             <div className="space-y-6">
               <div className="space-y-2.5">
@@ -92,24 +107,30 @@ export default async function PublicTokenPage({ params }: PublicTokenPageProps) 
                 </Muted>
               </div>
 
-              <div className="-mx-4 flex items-center gap-4 border-y border-border/60 bg-muted/25 px-4 py-4 sm:mx-0 sm:rounded-xl sm:border sm:px-5">
-              <Avatar size="lg" className="size-14 shrink-0 ring-2 ring-background sm:size-16">
-                {profile.avatar_url?.trim() ? (
-                  <AvatarImage src={profile.avatar_url} alt={`Avatar for @${profile.username}`} />
-                ) : null}
-                <AvatarFallback className="text-sm font-medium">
-                  {profileInitialsFromLabel(profile.username)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 space-y-0.5">
-                <Small className="text-[0.65rem] uppercase tracking-wide text-muted-foreground">
-                  Recipient
-                </Small>
-                <p className="truncate text-lg font-semibold tracking-tight text-foreground">
-                  @{profile.username}
-                </p>
+              <div className="-mx-4 flex flex-col border-y border-border/60 bg-muted/25 sm:mx-0 sm:rounded-xl sm:border">
+                <div className="flex min-w-0 items-center gap-4 px-4 py-4 sm:px-5">
+                  <Avatar size="lg" className="size-14 shrink-0 ring-2 ring-background sm:size-16">
+                    {profile.avatar_url?.trim() ? (
+                      <AvatarImage src={profile.avatar_url} alt={`Avatar for @${profile.username}`} />
+                    ) : null}
+                    <AvatarFallback className="text-sm font-medium">
+                      {profileInitialsFromLabel(profile.username)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="truncate text-lg font-semibold tracking-tight text-foreground"
+                      title={`@${profile.username}`}
+                    >
+                      @{profile.username}
+                    </p>
+                  </div>
+                </div>
               </div>
-              </div>
+
+              {visitorUsername ? (
+                <PublicProfileVisitorOwnLink username={visitorUsername} shareToken={visitorShareToken} />
+              ) : null}
             </div>
           </CardHeader>
 
@@ -123,6 +144,9 @@ export default async function PublicTokenPage({ params }: PublicTokenPageProps) 
           </CardContent>
         </Card>
       </div>
+      {visitorUsername ? (
+        <ShareCard username={visitorUsername} shareToken={visitorShareToken} />
+      ) : null}
     </main>
   );
 }

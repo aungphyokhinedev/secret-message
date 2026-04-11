@@ -1,12 +1,13 @@
 "use client";
 
-import { MoreVertical, Star } from "lucide-react";
+import { MoreVertical, RefreshCw, Star } from "lucide-react";
 import { useState } from "react";
 
 import { InboxNotificationTrigger } from "@/components/common/inbox-notification-trigger";
 import { LanguageSwitcher } from "@/components/common/language-switcher";
 import { DashboardAccountDialog } from "@/components/dashboard/dashboard-account-dialog";
 import { DashboardProfileStrip } from "@/components/dashboard/dashboard-profile-strip";
+import { OpenShareProfilePanelButton } from "@/components/share/open-share-profile-panel-button";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useUiLanguage } from "@/components/providers/ui-language-provider";
+import { cn } from "@/lib/utils";
 
 type DashboardHeaderProps = {
   currentUsername: string;
@@ -29,6 +31,10 @@ type DashboardHeaderProps = {
   /** True while the interaction feed is revalidating (e.g. after inbox tap or refresh). */
   inboxRefreshPending?: boolean;
   onInboxClick: () => void;
+  /** Reload messages list from the server. */
+  onFeedRefresh: () => void;
+  /** Same pending state as inbox while the feed is refreshing. */
+  feedRefreshPending: boolean;
 };
 
 export function DashboardHeader({
@@ -41,6 +47,8 @@ export function DashboardHeader({
   unreadReceivedCount,
   inboxRefreshPending = false,
   onInboxClick,
+  onFeedRefresh,
+  feedRefreshPending,
 }: DashboardHeaderProps) {
   const { t } = useUiLanguage();
   const [accountOpen, setAccountOpen] = useState(false);
@@ -60,6 +68,26 @@ export function DashboardHeader({
             >
               {t(`Today ${dailyUsed}/${dailyLimit}`, `ယနေ့ ${dailyUsed}/${dailyLimit}`)}
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1.5 px-2.5 text-xs font-medium sm:px-3"
+              disabled={feedRefreshPending}
+              aria-busy={feedRefreshPending}
+              title={t("Reload messages from the server", "ဆာဗာမှ စာများကို ပြန်တင်ရန်")}
+              aria-label={t("Refresh", "ပြန်တင်ရန်")}
+              onClick={() => onFeedRefresh()}
+            >
+              <RefreshCw
+                className={cn("size-3.5 shrink-0", feedRefreshPending && "animate-spin")}
+                aria-hidden
+              />
+              <span className="hidden sm:inline">{t("Refresh", "ပြန်တင်ရန်")}</span>
+            </Button>
+            <OpenShareProfilePanelButton size="sm" className="shrink-0 px-2.5 sm:px-3">
+              <span className="hidden sm:inline">{t("Profile", "ပရိုဖိုင်")}</span>
+            </OpenShareProfilePanelButton>
             <InboxNotificationTrigger
               unreadCount={unreadReceivedCount}
               ariaLabel={

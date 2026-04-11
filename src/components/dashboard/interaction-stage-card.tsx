@@ -3,7 +3,6 @@
 import { Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -26,21 +25,14 @@ type InteractionStageCardProps = {
   onClose: () => void;
   type: InteractionType;
   receiverUsername: string;
-  /** Short label above the name (e.g. Sender / Recipient). */
-  peerEyebrow: string;
+  /** Short label above the name (e.g. Sender). Omit for sent items — only the handle is shown. */
+  peerEyebrow?: string;
   senderLabel: string;
   senderAvatarUrl: string | null;
   message: string;
   /** When set, show delete control for the sender’s own outgoing interaction. */
   onDeleteSent?: () => void;
   deleteSentPending?: boolean;
-};
-
-const TYPE_LABEL: Record<InteractionType, string> = {
-  water_splash: "Water splash",
-  black_soot: "Black soot",
-  food: "Sweet gift",
-  flower: "Flower gift",
 };
 
 /** After the last sprite frame, delay (ms) before switching to the envelope. */
@@ -274,26 +266,21 @@ export function InteractionStageCard({
         )}
       >
         <DialogHeader className="space-y-2 border-b border-border/60 bg-muted/15 px-6 py-6 pr-12 text-left sm:px-8 sm:py-7 sm:pr-14">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 space-y-2">
-              <DialogTitle className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-                {t("Your gift", "လက်ဆောင်")}
-              </DialogTitle>
-              <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
-                {t(
-                  "Animation plays first — your message appears in the envelope.",
-                  "Animation ပြီးမှ စာအိတ်ထဲတွင် စာကို မြင်ရပါမည်။",
-                )}
-              </DialogDescription>
-            </div>
-            <Badge variant="secondary" className="mt-1 shrink-0 font-normal text-sm">
-              {TYPE_LABEL[type]}
-            </Badge>
+          <div className="min-w-0 space-y-2">
+            <DialogTitle className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+              {t("Your gift", "လက်ဆောင်")}
+            </DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+              {t(
+                "Animation plays first — your message appears in the envelope.",
+                "Animation ပြီးမှ စာအိတ်ထဲတွင် စာကို မြင်ရပါမည်။",
+              )}
+            </DialogDescription>
           </div>
         </DialogHeader>
 
         <div className="space-y-6 px-6 py-6 sm:px-8 sm:py-7">
-          <div className="flex items-center gap-4 rounded-2xl border border-border/70 bg-muted/25 px-4 py-3.5 sm:px-5 sm:py-4">
+          <div className="flex min-w-0 items-center gap-4 rounded-2xl border border-border/70 bg-muted/25 px-4 py-3.5 sm:px-5 sm:py-4">
             <Avatar size="default" className="size-10 shrink-0 ring-1 ring-border/60">
               {senderAvatarUrl ? <AvatarImage src={senderAvatarUrl} alt={senderLabel} /> : null}
               <AvatarFallback className="text-xs font-medium">
@@ -301,10 +288,24 @@ export function InteractionStageCard({
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-muted-foreground">{peerEyebrow}</p>
-              <p className="mt-0.5 truncate text-base font-semibold leading-tight text-foreground">
-                {senderLabel}
-              </p>
+              {peerEyebrow ? (
+                <>
+                  <p className="text-sm font-medium text-muted-foreground">{peerEyebrow}</p>
+                  <p
+                    className="mt-0.5 truncate text-base font-semibold leading-tight text-foreground"
+                    title={senderLabel}
+                  >
+                    {senderLabel}
+                  </p>
+                </>
+              ) : (
+                <p
+                  className="truncate text-base font-semibold leading-tight text-foreground"
+                  title={senderLabel}
+                >
+                  {senderLabel}
+                </p>
+              )}
             </div>
           </div>
 

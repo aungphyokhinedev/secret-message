@@ -1,6 +1,8 @@
 "use client";
 
 import { Home } from "lucide-react";
+
+import { ShareProfileNativeButton } from "@/components/share/share-profile-native-button";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
@@ -15,9 +17,19 @@ import { buttonVariants } from "@/components/ui/button";
 type PublicProfileHeaderNavProps = {
   /** Unread received messages for the signed-in visitor (same as dashboard). */
   unreadReceivedCount?: number;
+  /** When true, show a control to share the visitor’s profile link (native share when available). */
+  showShareOwnProfile?: boolean;
+  /** Required when showShareOwnProfile — used to build the shared URL. */
+  shareProfileUsername?: string | null;
+  shareProfileToken?: string | null;
 };
 
-export function PublicProfileHeaderNav({ unreadReceivedCount = 0 }: PublicProfileHeaderNavProps) {
+export function PublicProfileHeaderNav({
+  unreadReceivedCount = 0,
+  showShareOwnProfile = false,
+  shareProfileUsername = null,
+  shareProfileToken = null,
+}: PublicProfileHeaderNavProps) {
   const { t } = useUiLanguage();
   const router = useRouter();
   const [isInboxNavPending, startInboxNav] = useTransition();
@@ -43,17 +55,30 @@ export function PublicProfileHeaderNav({ unreadReceivedCount = 0 }: PublicProfil
       className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-3 py-3.5 sm:px-6"
       aria-label="Page navigation"
     >
-      <Link
-        href="/dashboard"
-        className={buttonVariants({
-          variant: "outline",
-          size: "default",
-          className: "shrink-0 gap-2 font-medium",
-        })}
-      >
-        <Home className="size-4 shrink-0" aria-hidden />
-        {t("Go back", "ပြန်ရန်")}
-      </Link>
+      <div className="flex min-w-0 items-center gap-2">
+        <Link
+          href="/dashboard"
+          className={buttonVariants({
+            variant: "outline",
+            size: "default",
+            className: "shrink-0 gap-2 font-medium",
+          })}
+        >
+          <Home className="size-4 shrink-0" aria-hidden />
+          {t("Go back", "ပြန်ရန်")}
+        </Link>
+        {showShareOwnProfile && shareProfileUsername ? (
+          <ShareProfileNativeButton
+            username={shareProfileUsername}
+            shareToken={shareProfileToken}
+            size="default"
+            className="shrink-0 max-sm:px-2.5 sm:gap-2"
+          >
+            <span className="max-sm:hidden">{t("Share profile", "Profile မျှဝေရန်")}</span>
+            <span className="sm:hidden">{t("Share", "မျှဝေ")}</span>
+          </ShareProfileNativeButton>
+        ) : null}
+      </div>
 
       <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:gap-2.5">
         <InboxNotificationTrigger
