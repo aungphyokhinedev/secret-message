@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 
 import {
   Check,
@@ -183,6 +183,9 @@ export function DashboardClient({
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [deleteConfirmForId, setDeleteConfirmForId] = useState<string | null>(null);
   const [readInteractionIds, setReadInteractionIds] = useState<Set<string>>(new Set());
+  /** Deep link from public profile: /dashboard#dashboard-interaction-feed */
+  const [inboxLinkPageEnter, setInboxLinkPageEnter] = useState(false);
+  const [inboxLinkFeedCue, setInboxLinkFeedCue] = useState(false);
 
   const activeItems = feedTab === "received" ? items : sentItems;
 
@@ -201,11 +204,12 @@ export function DashboardClient({
     return () => window.clearInterval(intervalId);
   }, []);
 
-  /** Deep link from public profile header: /dashboard#dashboard-interaction-feed */
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (typeof window === "undefined") return;
     if (window.location.hash !== "#dashboard-interaction-feed") return;
     setFeedTab("received");
+    setInboxLinkPageEnter(true);
+    setInboxLinkFeedCue(true);
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
         document.getElementById("dashboard-interaction-feed")?.scrollIntoView({
@@ -215,6 +219,12 @@ export function DashboardClient({
       });
     });
     window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+    const clearPage = window.setTimeout(() => setInboxLinkPageEnter(false), 850);
+    const clearFeed = window.setTimeout(() => setInboxLinkFeedCue(false), 3200);
+    return () => {
+      window.clearTimeout(clearPage);
+      window.clearTimeout(clearFeed);
+    };
   }, []);
 
   useEffect(() => {
@@ -310,7 +320,12 @@ export function DashboardClient({
   }
 
   return (
-    <div className="min-h-screen bg-muted/40 text-foreground">
+    <div
+      className={cn(
+        "min-h-screen bg-muted/40 text-foreground",
+        inboxLinkPageEnter && "dashboard-inbox-arrival-page",
+      )}
+    >
       <DashboardHeader
         currentUsername={currentUsername}
         userEmail={userEmail}
@@ -623,7 +638,10 @@ export function DashboardClient({
 
                 <Card
                   id="dashboard-interaction-feed"
-                  className="scroll-mt-24 overflow-hidden border border-border p-0 shadow-none ring-0"
+                  className={cn(
+                    "scroll-mt-24 overflow-hidden border border-border p-0 shadow-none ring-0",
+                    inboxLinkFeedCue && "dashboard-inbox-arrival-feed",
+                  )}
                 >
                       <ScrollArea className="h-[min(56vh,30rem)]">
                         <Table>

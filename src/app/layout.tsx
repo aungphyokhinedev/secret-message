@@ -88,7 +88,7 @@ export default function RootLayout({
           <DeployVersionGuard />
           <SupabaseBrowserProvider supabaseUrl={url} supabaseAnonKey={anonKey}>
             <UiLanguageProvider>
-              <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+              <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
                 {children}
               </ThemeProvider>
             </UiLanguageProvider>

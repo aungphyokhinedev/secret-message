@@ -1,6 +1,6 @@
 "use client";
 
-import { Mail } from "lucide-react";
+import { Loader2, Mail } from "lucide-react";
 import Link from "next/link";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -10,23 +10,32 @@ type InboxNotificationTriggerProps = {
   unreadCount: number;
   ariaLabel: string;
   title: string;
+  /** True while navigating (e.g. public profile → dashboard). Shows spinner and blocks repeat clicks. */
+  pending?: boolean;
 } & ({ href: string } | { onClick: () => void });
 
 export function InboxNotificationTrigger(props: InboxNotificationTriggerProps) {
-  const { unreadCount, ariaLabel, title } = props;
+  const { unreadCount, ariaLabel, title, pending = false } = props;
   const hasUnread = unreadCount > 0;
   const badgeText = unreadCount > 99 ? "99+" : String(unreadCount);
 
   const inner = (
     <>
-      <Mail
-        className={cn(
-          "relative z-[1] size-4 stroke-[2]",
-          hasUnread ? "inbox-notification-mail text-primary" : "text-muted-foreground",
-        )}
-        aria-hidden
-      />
-      {hasUnread ? (
+      {pending ? (
+        <Loader2
+          className="relative z-[1] size-4 shrink-0 animate-spin text-primary"
+          aria-hidden
+        />
+      ) : (
+        <Mail
+          className={cn(
+            "relative z-[1] size-4 stroke-[2]",
+            hasUnread ? "inbox-notification-mail text-primary" : "text-muted-foreground",
+          )}
+          aria-hidden
+        />
+      )}
+      {hasUnread && !pending ? (
         <span
           className={cn(
             "inbox-notification-badge absolute -right-0.5 -top-0.5 z-[2] flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full px-1",
@@ -43,9 +52,10 @@ export function InboxNotificationTrigger(props: InboxNotificationTriggerProps) {
   const triggerClass = cn(
     buttonVariants({ variant: "ghost", size: "icon-lg" }),
     "relative shrink-0 overflow-visible rounded-full",
-    hasUnread
+    pending && "pointer-events-none cursor-wait opacity-90",
+    hasUnread && !pending
       ? "inbox-notification-btn--active text-primary hover:bg-primary/12 hover:text-primary"
-      : "hover:bg-muted/60",
+      : !pending && "hover:bg-muted/60",
   );
 
   if ("href" in props) {
@@ -62,8 +72,10 @@ export function InboxNotificationTrigger(props: InboxNotificationTriggerProps) {
       variant="ghost"
       size="icon-lg"
       className={triggerClass}
-      onClick={props.onClick}
+      disabled={pending}
+      onClick={pending ? undefined : props.onClick}
       aria-label={ariaLabel}
+      aria-busy={pending}
       title={title}
     >
       {inner}

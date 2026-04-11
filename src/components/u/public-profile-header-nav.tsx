@@ -2,7 +2,8 @@
 
 import { Home } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 
 import { getUnreadReceivedCountAction } from "@/app/dashboard/actions";
 import { InboxNotificationTrigger } from "@/components/common/inbox-notification-trigger";
@@ -18,6 +19,8 @@ type PublicProfileHeaderNavProps = {
 
 export function PublicProfileHeaderNav({ unreadReceivedCount = 0 }: PublicProfileHeaderNavProps) {
   const { t } = useUiLanguage();
+  const router = useRouter();
+  const [isInboxNavPending, startInboxNav] = useTransition();
   const [unreadCount, setUnreadCount] = useState(unreadReceivedCount);
 
   useEffect(() => {
@@ -55,22 +58,31 @@ export function PublicProfileHeaderNav({ unreadReceivedCount = 0 }: PublicProfil
       <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:gap-2.5">
         <InboxNotificationTrigger
           unreadCount={unreadCount}
-          href="/dashboard#dashboard-interaction-feed"
+          pending={isInboxNavPending}
+          onClick={() => {
+            startInboxNav(() => {
+              router.push("/dashboard#dashboard-interaction-feed");
+            });
+          }}
           ariaLabel={
-            unreadCount > 0
-              ? t(
-                  `${unreadCount} unread message${unreadCount === 1 ? "" : "s"}`,
-                  `မဖတ်ရသေးသော စာ ${unreadCount} ခု`,
-                )
-              : t("Open received messages", "လက်ခံမှု စာရင်းကို ဖွင့်ရန်")
+            isInboxNavPending
+              ? t("Opening dashboard…", "ဒက်ရှ်ဘုတ်ကို ဖွင့်နေသည်…")
+              : unreadCount > 0
+                ? t(
+                    `${unreadCount} unread message${unreadCount === 1 ? "" : "s"}`,
+                    `မဖတ်ရသေးသော စာ ${unreadCount} ခု`,
+                  )
+                : t("Open received messages", "လက်ခံမှု စာရင်းကို ဖွင့်ရန်")
           }
           title={
-            unreadCount > 0
-              ? t(
-                  `${unreadCount} new — open dashboard`,
-                  `အသစ် ${unreadCount} ခု — ဒက်ရှ်ဘုတ်တွင် ဖွင့်ပါ`,
-                )
-              : t("Received messages", "လက်ခံမှု စာရင်း")
+            isInboxNavPending
+              ? t("Loading dashboard…", "ဒက်ရှ်ဘုတ် ဖွင့်နေသည်…")
+              : unreadCount > 0
+                ? t(
+                    `${unreadCount} new — open dashboard`,
+                    `အသစ် ${unreadCount} ခု — ဒက်ရှ်ဘုတ်တွင် ဖွင့်ပါ`,
+                  )
+                : t("Received messages", "လက်ခံမှု စာရင်း")
           }
         />
         <LanguageSwitcher className="border-0 bg-transparent p-0 shadow-none ring-0" />
