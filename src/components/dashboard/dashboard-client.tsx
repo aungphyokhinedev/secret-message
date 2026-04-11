@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import {
   Check,
@@ -15,6 +15,7 @@ import {
   Flower2,
   Inbox,
   Mail,
+  RefreshCw,
   Send,
   SendHorizontal,
   Trash2,
@@ -25,6 +26,7 @@ import { Avatar } from "@/components/common/avatar";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { InteractionStageCard } from "@/components/dashboard/interaction-stage-card";
 import { DashboardShareStickyPanel } from "@/components/dashboard/dashboard-share-sticky-panel";
+import { useNavigationProgress } from "@/components/providers/navigation-progress-provider";
 import { useUiLanguage } from "@/components/providers/ui-language-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,7 +59,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Muted } from "@/components/ui/typography";
 import {
   deleteSentInteractionAction,
   getUnreadReceivedCountAction,
@@ -178,6 +179,9 @@ export function DashboardClient({
 }: DashboardClientProps) {
   const { t } = useUiLanguage();
   const router = useRouter();
+  const navigationProgress = useNavigationProgress();
+  const refreshProgressSession = useRef(false);
+  const prevFeedRefreshing = useRef(false);
   const [unreadReceivedCount, setUnreadReceivedCount] = useState(initialUnreadReceivedCount);
   const [feedTab, setFeedTab] = useState<"received" | "sent">("received");
   const [filterType, setFilterType] = useState<InteractionType | null>(null);
@@ -207,20 +211,45 @@ export function DashboardClient({
     return () => window.clearInterval(intervalId);
   }, []);
 
+  const [isFeedRefreshing, startFeedTransition] = useTransition();
+
+  const refreshInteractionFeed = useCallback(
+    (options?: { focusReceivedTab?: boolean; scrollToFeed?: boolean }) => {
+      refreshProgressSession.current = true;
+      navigationProgress.begin();
+      if (options?.focusReceivedTab) setFeedTab("received");
+      startFeedTransition(() => {
+        router.refresh();
+      });
+      if (options?.scrollToFeed) {
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => {
+            document.getElementById("dashboard-interaction-feed")?.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            });
+          });
+        });
+      }
+    },
+    [router, navigationProgress],
+  );
+
+  useEffect(() => {
+    const wasPending = prevFeedRefreshing.current;
+    prevFeedRefreshing.current = isFeedRefreshing;
+    if (wasPending && !isFeedRefreshing && refreshProgressSession.current) {
+      refreshProgressSession.current = false;
+      navigationProgress.complete();
+    }
+  }, [isFeedRefreshing, navigationProgress]);
+
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
     if (window.location.hash !== "#dashboard-interaction-feed") return;
-    setFeedTab("received");
     setInboxLinkPageEnter(true);
     setInboxLinkFeedCue(true);
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        document.getElementById("dashboard-interaction-feed")?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      });
-    });
+    refreshInteractionFeed({ focusReceivedTab: true, scrollToFeed: true });
     window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
     const clearPage = window.setTimeout(() => setInboxLinkPageEnter(false), 850);
     const clearFeed = window.setTimeout(() => setInboxLinkFeedCue(false), 3200);
@@ -228,7 +257,15 @@ export function DashboardClient({
       window.clearTimeout(clearPage);
       window.clearTimeout(clearFeed);
     };
-  }, []);
+  }, [refreshInteractionFeed]);
+
+  useEffect(() => {
+    const onRefreshFeed = () => {
+      refreshInteractionFeed({ focusReceivedTab: true, scrollToFeed: true });
+    };
+    window.addEventListener("secretgift:refresh-interaction-feed", onRefreshFeed);
+    return () => window.removeEventListener("secretgift:refresh-interaction-feed", onRefreshFeed);
+  }, [refreshInteractionFeed]);
 
   useEffect(() => {
     setFilterType(null);
@@ -290,13 +327,7 @@ export function DashboardClient({
   }
 
   function scrollToInboxFeed() {
-    setFeedTab("received");
-    window.requestAnimationFrame(() => {
-      document.getElementById("dashboard-interaction-feed")?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    });
+    refreshInteractionFeed({ focusReceivedTab: true, scrollToFeed: true });
   }
 
   function openDeleteConfirm(interactionId: string) {
@@ -308,6 +339,7 @@ export function DashboardClient({
     if (!id) return;
 
     setPendingDeleteId(id);
+    navigationProgress.begin();
     try {
       const result = await deleteSentInteractionAction(id);
       if (!result.ok) {
@@ -319,6 +351,7 @@ export function DashboardClient({
       router.refresh();
     } finally {
       setPendingDeleteId(null);
+      window.setTimeout(() => navigationProgress.complete(), 550);
     }
   }
 
@@ -338,107 +371,125 @@ export function DashboardClient({
           dailyUsed={currentDailyUsed}
           dailyLimit={currentDailyLimit}
           unreadReceivedCount={unreadReceivedCount}
+          inboxRefreshPending={isFeedRefreshing}
           onInboxClick={scrollToInboxFeed}
         />
         <DashboardShareStickyPanel username={currentUsername} shareToken={shareToken} />
       </div>
 
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto max-w-6xl px-6 py-5 sm:px-8 sm:py-7">
         <Card className="overflow-hidden rounded-xl border border-border bg-card shadow-sm ring-0">
-          <div className="space-y-6 px-5 py-6 sm:px-6 sm:py-8">
-          <div className="space-y-4 sm:space-y-5">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {t("Main dashboard", "ပင်မဒက်ရှ်ဘုတ်")}
-            </p>
+          <div className="border-b border-border/70 bg-muted/25 px-6 py-5 sm:px-8">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+                <div className="min-w-0 space-y-1">
+                  <h2 className="font-heading text-lg font-semibold tracking-tight text-foreground sm:text-[1.15rem]">
+                    {t("Messages", "စာများ")}
+                  </h2>
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    {feedTab === "received"
+                      ? t(
+                          "Splashes, gifts, and notes friends send you. Filter by type below.",
+                          "သူငယ်ချင်းများ ပို့သော ရေပက်၊ လက်ဆောင်နှင့် စာများ။ အောက်တွင် အမျိုးအစားဖြင့် စစ်ပါ။",
+                        )
+                      : t(
+                          "What you've sent to others. Filter by type below.",
+                          "သင်အခြားသူများထံ ပို့သော အပြန်အလှန်များ။ အောက်တွင် အမျိုးအစားဖြင့် စစ်ပါ။",
+                        )}
+                  </p>
+                </div>
+                <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-1.5 px-3 text-xs font-medium"
+                    disabled={isFeedRefreshing}
+                    aria-busy={isFeedRefreshing}
+                    title={t("Reload messages from the server", "ဆာဗာမှ စာများကို ပြန်တင်ရန်")}
+                    onClick={() => refreshInteractionFeed()}
+                  >
+                    <RefreshCw
+                      className={cn("size-3.5 shrink-0", isFeedRefreshing && "animate-spin")}
+                      aria-hidden
+                    />
+                    {t("Refresh", "ပြန်တင်ရန်")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-1.5 px-3 text-xs font-medium"
+                    title={t("QR code, download image, and more", "QR code၊ ပုံ download နှင့် အခြား")}
+                    onClick={() => window.dispatchEvent(new Event("secretgift:open-share-panel"))}
+                  >
+                    <Send className="size-3.5 shrink-0" aria-hidden />
+                    {t("Share", "မျှဝေရန်")}
+                  </Button>
+                </div>
+              </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <h1 className="shrink-0 text-2xl font-bold tracking-tight text-foreground sm:text-[1.85rem]">
-                {t("Online Thingyan", "အွန်လိုင်း သင်္ကြန်")}
-              </h1>
-              <Button
-                type="button"
-                variant="outline"
-                title={t("QR code, download image, and more", "QR code၊ ပုံ download နှင့် အခြား")}
-                className="h-10 w-full shrink-0 gap-2 px-4 sm:h-10 sm:w-auto"
-                onClick={() => window.dispatchEvent(new Event("secretgift:open-share-panel"))}
+              <Tabs
+                value={feedTab}
+                onValueChange={(v) => setFeedTab(v as "received" | "sent")}
+                className="w-full min-w-0"
               >
-                <Send className="size-4 shrink-0" aria-hidden />
-                {t("Share profile", "Profile မျှဝေရန်")}
-              </Button>
+                <TabsList
+                  variant="default"
+                  className="grid !h-auto min-h-11 w-full min-w-0 grid-cols-2 gap-1 rounded-lg border border-border/60 bg-background/80 p-1 shadow-inner dark:bg-background/40"
+                >
+                  <TabsTrigger
+                    value="received"
+                    className={cn(
+                      "relative gap-2 rounded-md px-3 py-2 text-xs font-semibold sm:min-h-10 sm:px-4 sm:text-sm",
+                      "data-active:bg-card data-active:text-foreground data-active:shadow-sm",
+                      "dark:data-active:bg-background/80",
+                    )}
+                  >
+                    <Inbox className="size-4 shrink-0 opacity-90 sm:size-[1.125rem]" aria-hidden />
+                    <span className="min-w-0 flex-1 truncate text-left">
+                      {t("Received", "လက်ခံမှု")}
+                    </span>
+                    <span
+                      className={cn(
+                        "inline-flex min-w-[1.75rem] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[0.6875rem] font-semibold tabular-nums",
+                        feedTab === "received"
+                          ? "bg-primary/15 text-primary dark:bg-primary/25"
+                          : "bg-muted/80 text-muted-foreground dark:bg-background/40",
+                      )}
+                    >
+                      {items.length}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="sent"
+                    className={cn(
+                      "relative gap-2 rounded-md px-3 py-2 text-xs font-semibold sm:min-h-10 sm:px-4 sm:text-sm",
+                      "data-active:bg-card data-active:text-foreground data-active:shadow-sm",
+                      "dark:data-active:bg-background/80",
+                    )}
+                  >
+                    <SendHorizontal className="size-4 shrink-0 opacity-90 sm:size-[1.125rem]" aria-hidden />
+                    <span className="min-w-0 flex-1 truncate text-left">
+                      {t("Sent", "ပို့မှု")}
+                    </span>
+                    <span
+                      className={cn(
+                        "inline-flex min-w-[1.75rem] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[0.6875rem] font-semibold tabular-nums",
+                        feedTab === "sent"
+                          ? "bg-primary/15 text-primary dark:bg-primary/25"
+                          : "bg-muted/80 text-muted-foreground dark:bg-background/40",
+                      )}
+                    >
+                      {sentItems.length}
+                    </span>
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
-
-            <Tabs
-              value={feedTab}
-              onValueChange={(v) => setFeedTab(v as "received" | "sent")}
-              className="w-full min-w-0"
-            >
-              <TabsList
-                variant="default"
-                className="grid !h-auto min-h-12 w-full min-w-0 grid-cols-2 gap-1.5 rounded-lg border border-border/70 bg-muted/35 p-1 shadow-inner"
-              >
-                <TabsTrigger
-                  value="received"
-                  className={cn(
-                    "relative gap-2 rounded-md px-3 py-2.5 text-xs font-semibold sm:min-h-11 sm:px-4 sm:text-sm",
-                    "data-active:bg-card data-active:text-foreground data-active:shadow-sm",
-                    "dark:data-active:bg-background/80",
-                  )}
-                >
-                  <Inbox className="size-4 shrink-0 opacity-90 sm:size-[1.125rem]" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate text-left">
-                    {t("Received", "လက်ခံမှု")}
-                  </span>
-                  <span
-                    className={cn(
-                      "inline-flex min-w-[1.75rem] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[0.6875rem] font-semibold tabular-nums",
-                      feedTab === "received"
-                        ? "bg-primary/15 text-primary dark:bg-primary/25"
-                        : "bg-background/60 text-muted-foreground dark:bg-background/20",
-                    )}
-                  >
-                    {items.length}
-                  </span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="sent"
-                  className={cn(
-                    "relative gap-2 rounded-md px-3 py-2.5 text-xs font-semibold sm:min-h-11 sm:px-4 sm:text-sm",
-                    "data-active:bg-card data-active:text-foreground data-active:shadow-sm",
-                    "dark:data-active:bg-background/80",
-                  )}
-                >
-                  <SendHorizontal className="size-4 shrink-0 opacity-90 sm:size-[1.125rem]" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate text-left">
-                    {t("Sent", "ပို့မှု")}
-                  </span>
-                  <span
-                    className={cn(
-                      "inline-flex min-w-[1.75rem] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[0.6875rem] font-semibold tabular-nums",
-                      feedTab === "sent"
-                        ? "bg-primary/15 text-primary dark:bg-primary/25"
-                        : "bg-background/60 text-muted-foreground dark:bg-background/20",
-                    )}
-                  >
-                    {sentItems.length}
-                  </span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            <p className="w-full text-sm leading-relaxed text-muted-foreground">
-              {feedTab === "received"
-                ? t(
-                    "Here's what friends sent you for Thingyan. Tap a metric to filter by type.",
-                    "သူငယ်ချင်းများ ပို့သော အပြန်အလှန်များ။ Type စစ်ရန် metric ကို နှိပ်ပါ။",
-                  )
-                : t(
-                    "Your outgoing splashes, gifts, and messages. Tap a metric to filter by type.",
-                    "သင်ပို့သော ရေပက်၊ လက်ဆောင်နှင့် စာများ။ Type စစ်ရန် metric ကို နှိပ်ပါ။",
-                  )}
-            </p>
           </div>
 
-          <div className="space-y-5 sm:space-y-6">
+          <div className="space-y-5 px-6 py-5 sm:space-y-6 sm:px-8 sm:py-6">
             {activeNotice ? (
               <Card className="border-amber-500/25 bg-amber-500/5 py-2.5 shadow-none ring-0">
                 <CardContent className="py-0 text-xs leading-relaxed text-foreground">
@@ -575,23 +626,18 @@ export function DashboardClient({
                     })}
                 </div>
 
-                <div className="space-y-4">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                      <p className="text-base font-medium text-foreground">
-                        {t("Interaction feed", "Interaction စာရင်း")}
-                      </p>
-                      <Muted className="text-sm sm:text-right">
-                        {feedTab === "sent"
-                          ? t(
-                              "Click a row for details. Use delete to remove from your sent list.",
-                              "အသေးစိတ် အတွက် အတန်းကို နှိပ်ပါ။ ပို့မှု စာရင်းမှ ဖျက်ရန် ဖျက်ခလုတ်သုံးပါ။",
-                            )
-                          : t(
-                              "Open a row to reveal the gift and message — not shown in the list.",
-                              "လက်ဆောင်နှင့် စာကို အတန်းကိုဖွင့်မှသာ မြင်ရပါမည်။ စာရင်းတွင် မပြပါ။",
-                            )}
-                      </Muted>
-                    </div>
+                <div className="space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {feedTab === "sent"
+                      ? t(
+                          "Tap a row to open details. Delete removes it from your sent list.",
+                          "အသေးစိတ်အတွက် အတန်းကို နှိပ်ပါ။ ဖျက်ခြင်းဖြင့် ပို့မှု စာရင်းမှ ဖယ်ရှားပါသည်။",
+                        )
+                      : t(
+                          "Tap a row to open — the gift and full message are hidden in the list.",
+                          "အတန်းကို နှိပ်ပြီး ဖွင့်ပါ — လက်ဆောင်နှင့် စာအပြည့်ကို စာရင်းတွင် မပြပါ။",
+                        )}
+                  </p>
 
                 {selectedInteraction ? (
                       <InteractionStageCard
@@ -802,7 +848,7 @@ export function DashboardClient({
                           </TableBody>
                         </Table>
                       </ScrollArea>
-                      <CardFooter className="flex flex-col gap-3 border-t border-border bg-muted/30 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                      <CardFooter className="flex flex-col gap-3 border-t border-border bg-muted/30 px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8">
                         <p className="text-sm text-muted-foreground">
                           {typeFiltered.length === 0
                             ? t("0 interactions", "0 ခု")
@@ -865,7 +911,6 @@ export function DashboardClient({
                   </div>
                 </>
               )}
-          </div>
           </div>
         </Card>
       </main>

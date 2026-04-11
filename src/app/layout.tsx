@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { DeployVersionGuard } from "@/components/providers/deploy-version-guard";
+import { NavigationProgressProvider } from "@/components/providers/navigation-progress-provider";
 import { PwaProvider } from "@/components/providers/pwa-provider";
 import { SupabaseBrowserProvider } from "@/components/providers/supabase-browser-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
@@ -84,16 +85,18 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-background">
-        <PwaProvider>
-          <DeployVersionGuard />
-          <SupabaseBrowserProvider supabaseUrl={url} supabaseAnonKey={anonKey}>
-            <UiLanguageProvider>
-              <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-                {children}
-              </ThemeProvider>
-            </UiLanguageProvider>
-          </SupabaseBrowserProvider>
-        </PwaProvider>
+        <NavigationProgressProvider>
+          <PwaProvider>
+            <DeployVersionGuard />
+            <SupabaseBrowserProvider supabaseUrl={url} supabaseAnonKey={anonKey}>
+              <UiLanguageProvider>
+                <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+                  {children}
+                </ThemeProvider>
+              </UiLanguageProvider>
+            </SupabaseBrowserProvider>
+          </PwaProvider>
+        </NavigationProgressProvider>
       </body>
     </html>
   );

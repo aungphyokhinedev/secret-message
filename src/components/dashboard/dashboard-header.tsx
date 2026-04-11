@@ -26,6 +26,8 @@ type DashboardHeaderProps = {
   dailyUsed: number;
   dailyLimit: number;
   unreadReceivedCount: number;
+  /** True while the interaction feed is revalidating (e.g. after inbox tap or refresh). */
+  inboxRefreshPending?: boolean;
   onInboxClick: () => void;
 };
 
@@ -37,6 +39,7 @@ export function DashboardHeader({
   dailyUsed,
   dailyLimit,
   unreadReceivedCount,
+  inboxRefreshPending = false,
   onInboxClick,
 }: DashboardHeaderProps) {
   const { t } = useUiLanguage();
@@ -46,7 +49,7 @@ export function DashboardHeader({
   return (
     <>
       <header className="border-b border-border bg-card">
-        <div className="mx-auto flex max-w-6xl items-center px-4 py-4 sm:px-6">
+        <div className="mx-auto flex max-w-6xl items-center px-6 py-4 sm:px-8">
           <div className="min-w-0 flex-1">
             <DashboardProfileStrip currentUsername={currentUsername} currentAvatarUrl={userAvatarUrl} />
           </div>
@@ -76,6 +79,7 @@ export function DashboardHeader({
                   : t("Received messages", "လက်ခံမှု စာရင်း")
               }
               onClick={onInboxClick}
+              pending={inboxRefreshPending}
             />
             <LanguageSwitcher className="border-0 bg-transparent p-0 shadow-none ring-0" />
             <Button

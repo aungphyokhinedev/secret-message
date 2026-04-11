@@ -58,7 +58,7 @@ export function QuickShareProfileButton({ username, shareToken }: QuickShareProf
         variant="default"
         onClick={() => void handleCopy()}
         title={t("Copy profile link to share with friends", "သူငယ်ချင်းများနှင့် မျှဝေရန် profile လင့်ကို copy")}
-        className="relative h-11 w-full min-w-0 gap-2 rounded-lg border border-primary/25 bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 sm:h-11 sm:min-w-[14rem] sm:px-5"
+        className="relative h-10 w-full min-w-0 gap-2 rounded-lg border border-primary/20 bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 sm:h-10 sm:min-w-[13.5rem] sm:px-5"
         aria-label={t("Copy profile link", "Profile လင့်ကို copy")}
       >
         <Link2 className="size-4 shrink-0" strokeWidth={2.25} aria-hidden />

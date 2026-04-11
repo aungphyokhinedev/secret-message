@@ -728,6 +728,30 @@ body {
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* App-wide route / RSC refresh indicator (see NavigationProgressProvider) */
+@keyframes navigation-progress-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(380%);
+  }
+}
+
+.navigation-progress-bar__indeterminate {
+  animation: navigation-progress-slide 1.05s ease-in-out infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navigation-progress-bar__indeterminate {
+    animation: none;
+    width: 100%;
+    opacity: 0.85;
+    transform: none;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
