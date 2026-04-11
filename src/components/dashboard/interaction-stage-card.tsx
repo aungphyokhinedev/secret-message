@@ -25,8 +25,6 @@ type InteractionStageCardProps = {
   onClose: () => void;
   type: InteractionType;
   receiverUsername: string;
-  /** Short label above the name (e.g. Sender). Omit for sent items — only the handle is shown. */
-  peerEyebrow?: string;
   senderLabel: string;
   senderAvatarUrl: string | null;
   message: string;
@@ -51,7 +49,6 @@ export function InteractionStageCard({
   onClose,
   type,
   receiverUsername: _receiverUsername,
-  peerEyebrow,
   senderLabel,
   senderAvatarUrl,
   message,
@@ -261,55 +258,36 @@ export function InteractionStageCard({
       <DialogContent
         showCloseButton
         className={cn(
-          "max-h-[min(92vh,760px)] gap-0 overflow-y-auto overflow-x-hidden p-0 sm:max-w-lg",
+          "max-h-[min(92vh,720px)] gap-0 overflow-y-auto overflow-x-hidden p-0 sm:max-w-md",
           "border border-border bg-card text-card-foreground shadow-sm ring-0",
         )}
       >
-        <DialogHeader className="space-y-2 border-b border-border/60 bg-muted/15 px-6 py-6 pr-12 text-left sm:px-8 sm:py-7 sm:pr-14">
-          <div className="min-w-0 space-y-2">
-            <DialogTitle className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-              {t("Your gift", "လက်ဆောင်")}
-            </DialogTitle>
-            <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
-              {t(
-                "Animation plays first — your message appears in the envelope.",
-                "Animation ပြီးမှ စာအိတ်ထဲတွင် စာကို မြင်ရပါမည်။",
-              )}
-            </DialogDescription>
-          </div>
-        </DialogHeader>
-
-        <div className="space-y-6 px-6 py-6 sm:px-8 sm:py-7">
-          <div className="flex min-w-0 items-center gap-4 rounded-2xl border border-border/70 bg-muted/25 px-4 py-3.5 sm:px-5 sm:py-4">
-            <Avatar size="default" className="size-10 shrink-0 ring-1 ring-border/60">
-              {senderAvatarUrl ? <AvatarImage src={senderAvatarUrl} alt={senderLabel} /> : null}
-              <AvatarFallback className="text-xs font-medium">
+        <DialogHeader className="border-b border-border/60 px-4 py-2.5 pr-12 text-left sm:px-5 sm:pr-14">
+          <DialogTitle className="sr-only">{t("Your gift", "လက်ဆောင်")}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {t(
+              "Animation plays first — your message appears in the envelope.",
+              "Animation ပြီးမှ စာအိတ်ထဲတွင် စာကို မြင်ရပါမည်။",
+            )}
+          </DialogDescription>
+          <div className="flex min-w-0 items-center gap-2">
+            <Avatar size="sm" className="shrink-0">
+              {senderAvatarUrl ? <AvatarImage src={senderAvatarUrl} alt="" /> : null}
+              <AvatarFallback className="text-[0.625rem] font-medium leading-none">
                 {profileInitialsFromLabel(senderLabel)}
               </AvatarFallback>
             </Avatar>
-            <div className="min-w-0 flex-1">
-              {peerEyebrow ? (
-                <>
-                  <p className="text-sm font-medium text-muted-foreground">{peerEyebrow}</p>
-                  <p
-                    className="mt-0.5 truncate text-base font-semibold leading-tight text-foreground"
-                    title={senderLabel}
-                  >
-                    {senderLabel}
-                  </p>
-                </>
-              ) : (
-                <p
-                  className="truncate text-base font-semibold leading-tight text-foreground"
-                  title={senderLabel}
-                >
-                  {senderLabel}
-                </p>
-              )}
-            </div>
+            <p
+              className="min-w-0 flex-1 truncate text-[0.8125rem] font-medium leading-tight text-foreground"
+              title={senderLabel}
+            >
+              {senderLabel}
+            </p>
           </div>
+        </DialogHeader>
 
-          <div className="relative min-h-[13rem] overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-b from-muted/50 to-muted/25 sm:min-h-[14rem]">
+        <div className="space-y-4 px-5 py-4 sm:px-6 sm:py-5">
+          <div className="relative min-h-[12rem] overflow-hidden rounded-xl bg-muted/35 sm:min-h-[13rem]">
             {/* Phase 1: sprite */}
             <div
               className={cn(
@@ -320,7 +298,7 @@ export function InteractionStageCard({
               )}
               aria-hidden={!animationLayerVisible}
             >
-              <div className="relative aspect-square h-full max-h-[min(13rem,56vw)] w-full max-w-[min(13rem,56vw)] overflow-hidden rounded-xl">
+              <div className="relative aspect-square h-full max-h-[min(12rem,52vw)] w-full max-w-[min(12rem,52vw)] overflow-hidden rounded-lg">
                 <canvas
                   ref={canvasRef}
                   width={720}
@@ -328,16 +306,16 @@ export function InteractionStageCard({
                   className="h-full w-full object-cover"
                 />
                 {stage === "sprite" && sheetStatus !== "ready" ? (
-                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg bg-background/95 px-3 text-center backdrop-blur-sm">
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-background/90 px-2 text-center backdrop-blur-[2px]">
                     {showSpriteLoading ? (
                       <>
-                        <Loader2 className="size-7 animate-spin text-primary" aria-hidden />
-                        <p className="text-xs font-medium text-foreground">
+                        <Loader2 className="size-6 animate-spin text-primary" aria-hidden />
+                        <p className="text-[0.6875rem] text-muted-foreground">
                           {t("Loading animation…", "Animation တင်နေသည်…")}
                         </p>
                       </>
                     ) : showSpriteMissing ? (
-                      <p className="text-[0.7rem] leading-relaxed text-muted-foreground">
+                      <p className="text-[0.65rem] leading-snug text-muted-foreground">
                         {t(
                           `Could not load animation. Add /public/img/${type}.png (or .webp/.jpg) as a 4×4 sprite sheet.`,
                           `Animation မတင်နိုင်ပါ။ /public/img/${type}.png (သို့ .webp/.jpg) ကို 4×4 sprite sheet အဖြစ် ထည့်ပါ။`,
@@ -352,7 +330,7 @@ export function InteractionStageCard({
             {/* Phase 2: envelope + message on paper */}
             <div
               className={cn(
-                "relative z-10 flex min-h-[13rem] flex-col items-center justify-center px-4 py-6 transition-all duration-500 ease-out sm:min-h-[14rem] sm:px-5 sm:py-7",
+                "relative z-10 flex min-h-[12rem] flex-col items-center justify-center px-3 py-5 transition-all duration-500 ease-out sm:min-h-[13rem] sm:px-4 sm:py-6",
                 stage === "envelope"
                   ? "translate-y-0 opacity-100"
                   : "pointer-events-none translate-y-3 opacity-0",
@@ -370,16 +348,16 @@ export function InteractionStageCard({
           </div>
 
           {stage === "envelope" && envelopePhase === "success" ? (
-            <div className="flex justify-center pt-2">
+            <div className="flex justify-center">
               <Button
                 type="button"
-                variant="secondary"
-                size="default"
-                className="h-11 gap-2 rounded-full px-6 text-sm shadow-sm"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
                 onClick={scheduleReplay}
                 aria-label={t("Replay animation", "Animation ပြန်ဖွင့်")}
               >
-                <RotateCcw className="size-4" aria-hidden />
+                <RotateCcw className="size-3.5" aria-hidden />
                 {t("Replay", "ပြန်ဖွင့်")}
               </Button>
             </div>
@@ -387,15 +365,16 @@ export function InteractionStageCard({
         </div>
 
         {onDeleteSent ? (
-          <div className="border-t border-border/80 bg-muted/10 px-6 py-5 sm:px-8">
+          <div className="border-t border-border/60 px-5 py-3 sm:px-6">
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
+              size="sm"
               disabled={deleteSentPending}
-              className="h-11 w-full gap-2 border-destructive/30 text-sm text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-destructive/45 dark:hover:bg-destructive/20"
+              className="h-9 w-full gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
               onClick={() => onDeleteSent()}
             >
-              <Trash2 className="size-4 shrink-0" aria-hidden />
+              <Trash2 className="size-3.5 shrink-0" aria-hidden />
               {deleteSentPending
                 ? t("Deleting…", "ဖျက်နေသည်…")
                 : t("Delete from sent history", "ပို့မှု မှတ်တမ်းမှ ဖျက်ရန်")}

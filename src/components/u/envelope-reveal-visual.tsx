@@ -2,6 +2,23 @@
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Party-popper style confetti: burst from behind the envelope (upward fan).
+ * Angles in degrees from +X axis; 200–340° fans upward on screen (y grows downward).
+ */
+const POPPER_BURST = Array.from({ length: 22 }, (_, i) => {
+  const t = i / 21;
+  const deg = 198 + t * 142;
+  const rad = (deg * Math.PI) / 180;
+  const dist = 38 + (i % 6) * 7 + (i % 3) * 4;
+  return {
+    tx: Math.cos(rad) * dist,
+    ty: Math.sin(rad) * dist,
+    spinEnd: 160 + (i % 5) * 48 + i * 7,
+    slim: i % 3 !== 0,
+  };
+});
+
 export type EnvelopeRevealPurpose = "send" | "read";
 
 type EnvelopeRevealVisualProps = {
@@ -32,8 +49,28 @@ export function EnvelopeRevealVisual({
       )}
       aria-hidden
     >
+      {!isSending ? (
+        <div className="envelope-celebrate-layer" aria-hidden>
+          <div className="envelope-popper-origin">
+            {POPPER_BURST.map((piece, i) => (
+              <span
+                key={i}
+                className={piece.slim ? "envelope-popper-streamer" : "envelope-popper-dot"}
+                style={
+                  {
+                    "--tx-end": `${piece.tx}px`,
+                    "--ty-end": `${piece.ty}px`,
+                    "--spin-end": `${piece.spinEnd}deg`,
+                    "--pop-i": i,
+                  } as React.CSSProperties
+                }
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
       <svg
-        className="send-status-envelope-svg h-full w-full overflow-visible"
+        className="send-status-envelope-svg relative z-[1] h-full w-full overflow-visible"
         viewBox="0 0 120 100"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"

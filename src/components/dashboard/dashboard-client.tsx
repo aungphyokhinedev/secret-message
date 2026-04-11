@@ -650,9 +650,6 @@ export function DashboardClient({
                             ? receiverById[selectedInteraction.receiver_id].username
                             : currentUsername
                         }
-                        peerEyebrow={
-                          feedTab === "received" ? t("Sender", "ပို့သူ") : undefined
-                        }
                         senderLabel={
                           feedTab === "received"
                             ? selectedInteraction.sender_id && senderById[selectedInteraction.sender_id]
