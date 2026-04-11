@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import {
@@ -16,8 +17,8 @@ import {
   Inbox,
   Mail,
   RefreshCw,
-  Send,
   SendHorizontal,
+  Settings,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
@@ -140,6 +141,37 @@ function formatInteractionTime(iso: string) {
   } catch {
     return iso;
   }
+}
+
+function OpenShareProfilePanelButton({
+  children,
+  className,
+  size = "sm",
+}: {
+  children: ReactNode;
+  className?: string;
+  size?: "sm" | "default";
+}) {
+  const { t } = useUiLanguage();
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size={size}
+      className={cn(
+        "gap-1.5 font-medium",
+        size === "sm" && "h-9 px-3 text-xs",
+        size === "default" && "h-10 px-3 text-sm",
+        className,
+      )}
+      title={t("QR code, download image, and more", "QR code၊ ပုံ download နှင့် အခြား")}
+      onClick={() => window.dispatchEvent(new Event("secretgift:open-share-panel"))}
+      aria-label={t("Share profile — QR, link, and more", "Profile မျှဝေရန် — QR၊ လင့်")}
+    >
+      <Settings className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+      {children}
+    </Button>
+  );
 }
 
 export type DashboardClientProps = {
@@ -377,9 +409,9 @@ export function DashboardClient({
         <DashboardShareStickyPanel username={currentUsername} shareToken={shareToken} />
       </div>
 
-      <main className="mx-auto max-w-6xl px-6 py-5 sm:px-8 sm:py-7">
-        <Card className="overflow-hidden rounded-xl border border-border bg-card shadow-sm ring-0">
-          <div className="border-b border-border/70 bg-muted/25 px-6 py-5 sm:px-8">
+      <main className="mx-auto w-full max-w-6xl px-0 py-4 sm:px-8 sm:py-7">
+        <Card className="overflow-hidden rounded-none border-x-0 border-border bg-card shadow-none ring-0 sm:rounded-xl sm:border-x sm:shadow-sm">
+          <div className="border-b border-border/70 bg-muted/25 px-5 py-5 sm:px-8">
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
                 <div className="min-w-0 space-y-1">
@@ -415,17 +447,9 @@ export function DashboardClient({
                     />
                     {t("Refresh", "ပြန်တင်ရန်")}
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-9 gap-1.5 px-3 text-xs font-medium"
-                    title={t("QR code, download image, and more", "QR code၊ ပုံ download နှင့် အခြား")}
-                    onClick={() => window.dispatchEvent(new Event("secretgift:open-share-panel"))}
-                  >
-                    <Send className="size-3.5 shrink-0" aria-hidden />
-                    {t("Share", "မျှဝေရန်")}
-                  </Button>
+                  <OpenShareProfilePanelButton size="sm">
+                    {t("Profile", "ပရိုဖိုင်")}
+                  </OpenShareProfilePanelButton>
                 </div>
               </div>
 
@@ -489,7 +513,7 @@ export function DashboardClient({
             </div>
           </div>
 
-          <div className="space-y-5 px-6 py-5 sm:space-y-6 sm:px-8 sm:py-6">
+          <div className="space-y-5 px-5 py-5 sm:space-y-6 sm:px-8 sm:py-6">
             {activeNotice ? (
               <Card className="border-amber-500/25 bg-amber-500/5 py-2.5 shadow-none ring-0">
                 <CardContent className="py-0 text-xs leading-relaxed text-foreground">
@@ -520,17 +544,12 @@ export function DashboardClient({
                   </CardHeader>
                   {feedTab === "received" ? (
                     <CardFooter className="border-0 bg-transparent pt-0">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => window.dispatchEvent(new Event("secretgift:open-share-panel"))}
-                        className={cn(
-                          "share-profile-open-btn--outline h-9 gap-1.5 rounded-lg border-2 font-medium",
-                        )}
+                      <OpenShareProfilePanelButton
+                        size="default"
+                        className={cn("share-profile-open-btn--outline rounded-lg border-2")}
                       >
-                        <Send className="h-4 w-4 shrink-0" aria-hidden />
                         {t("Share profile", "Profile မျှဝေရန်")}
-                      </Button>
+                      </OpenShareProfilePanelButton>
                     </CardFooter>
                   ) : null}
                 </Card>
@@ -848,7 +867,7 @@ export function DashboardClient({
                           </TableBody>
                         </Table>
                       </ScrollArea>
-                      <CardFooter className="flex flex-col gap-3 border-t border-border bg-muted/30 px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+                      <CardFooter className="flex flex-col gap-3 border-t border-border bg-muted/30 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8">
                         <p className="text-sm text-muted-foreground">
                           {typeFiltered.length === 0
                             ? t("0 interactions", "0 ခု")

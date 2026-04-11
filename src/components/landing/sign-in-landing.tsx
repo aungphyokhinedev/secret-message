@@ -49,8 +49,8 @@ export function SignInLanding({ afterAuth, urlError }: SignInLandingProps) {
 
   return (
     <main className="text-foreground">
-      <section id="hero" className="scroll-mt-24 px-4 pt-10 sm:px-6 sm:pt-14">
-        <div className="mx-auto max-w-xl text-center sm:max-w-2xl">
+      <section id="hero" className="scroll-mt-24 px-0 pt-10 sm:px-6 sm:pt-14">
+        <div className="mx-auto max-w-xl px-4 text-center sm:max-w-2xl sm:px-0">
           <Small className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             {t("SecretGift · Online Thingyan", "SecretGift · အွန်လိုင်း သင်္ကြန်")}
           </Small>
@@ -65,10 +65,10 @@ export function SignInLanding({ afterAuth, urlError }: SignInLandingProps) {
           </Lead>
         </div>
 
-        <div className="mx-auto mt-8 w-full max-w-md sm:mt-10">
-          <Card className="border-border/80 bg-card text-left shadow-md ring-1 ring-border/40">
+        <div className="mx-auto mt-8 w-full max-w-none sm:mt-10 sm:max-w-md">
+          <Card className="rounded-none border-x-0 border-border/80 bg-card text-left shadow-none ring-0 sm:rounded-xl sm:border-x sm:shadow-md sm:ring-1 sm:ring-border/40">
             <CardHeader className="space-y-4 pb-2">
-              <div>
+              <div className="max-sm:hidden">
                 <CardTitle className="text-lg sm:text-xl">
                   {t("Sign in", "ဝင်ရောက်ရန်")}
                 </CardTitle>

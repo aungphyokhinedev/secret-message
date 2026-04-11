@@ -25,8 +25,8 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     return (
       <div className="min-h-screen bg-background">
         <LandingHeader />
-        <main className="flex min-h-[calc(100vh-7rem)] items-center justify-center px-4 py-10 sm:px-6">
-          <Card className="w-full max-w-lg border-amber-500/30 bg-amber-500/10 shadow-sm dark:border-amber-500/40 dark:bg-amber-500/10">
+        <main className="flex min-h-[calc(100vh-7rem)] items-center justify-center px-0 py-10 sm:px-6">
+          <Card className="w-full max-w-none rounded-none border-x-0 border-amber-500/30 bg-amber-500/10 shadow-none ring-0 dark:border-amber-500/40 dark:bg-amber-500/10 sm:max-w-lg sm:rounded-xl sm:border-x sm:shadow-sm sm:ring-1">
             <CardHeader>
               <CardTitle className="text-amber-950 dark:text-amber-100">Supabase setup required</CardTitle>
               <CardDescription className="text-amber-950/80 dark:text-amber-50/90">

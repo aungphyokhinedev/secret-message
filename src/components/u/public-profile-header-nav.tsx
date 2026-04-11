@@ -40,7 +40,7 @@ export function PublicProfileHeaderNav({ unreadReceivedCount = 0 }: PublicProfil
 
   return (
     <nav
-      className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3.5 sm:px-6"
+      className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-3 py-3.5 sm:px-6"
       aria-label="Page navigation"
     >
       <Link

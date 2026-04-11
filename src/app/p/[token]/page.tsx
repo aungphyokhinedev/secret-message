@@ -75,23 +75,24 @@ export default async function PublicTokenPage({ params }: PublicTokenPageProps) 
         <PublicProfileHeaderNav unreadReceivedCount={unreadReceivedCount ?? 0} />
       </header>
 
-      <div className="mx-auto max-w-xl px-4 py-8 sm:px-6 sm:py-12">
-        <Card className="overflow-hidden border-border/60 bg-card shadow-sm ring-1 ring-border/40">
-          <CardHeader className="space-y-6 px-5 pb-2 pt-7 sm:px-8 sm:pt-8">
-            <div className="space-y-2.5">
-              <Small className="text-[0.65rem] uppercase tracking-[0.14em] text-muted-foreground">
-                SecretGift link
-              </Small>
-              <H3 className="scroll-m-0 border-0 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-                Send Your Message
-              </H3>
-              <Muted className="max-w-md text-sm leading-[1.6]">
-                Pick a splash or gift, add a short message, and send it. They will see it on their home
-                feed.
-              </Muted>
-            </div>
+      <div className="w-full max-w-none pb-6 pt-0 sm:mx-auto sm:max-w-xl sm:px-6 sm:py-12">
+        <Card className="overflow-hidden rounded-none border-x-0 border-border/60 bg-card shadow-none ring-0 sm:rounded-xl sm:border-x sm:shadow-sm sm:ring-1 sm:ring-border/40">
+          <CardHeader className="space-y-0 px-4 pb-2 pt-7 sm:space-y-6 sm:px-8 sm:pt-8">
+            <div className="space-y-6">
+              <div className="space-y-2.5">
+                <Small className="text-[0.65rem] uppercase tracking-[0.14em] text-muted-foreground">
+                  SecretGift link
+                </Small>
+                <H3 className="scroll-m-0 border-0 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+                  Send Your Message
+                </H3>
+                <Muted className="max-w-md text-sm leading-[1.6]">
+                  Pick a splash or gift, add a short message, and send it. They will see it on their home
+                  feed.
+                </Muted>
+              </div>
 
-            <div className="flex items-center gap-4 rounded-xl border border-border/60 bg-muted/25 px-4 py-4 sm:px-5">
+              <div className="-mx-4 flex items-center gap-4 border-y border-border/60 bg-muted/25 px-4 py-4 sm:mx-0 sm:rounded-xl sm:border sm:px-5">
               <Avatar size="lg" className="size-14 shrink-0 ring-2 ring-background sm:size-16">
                 {profile.avatar_url?.trim() ? (
                   <AvatarImage src={profile.avatar_url} alt={`Avatar for @${profile.username}`} />
@@ -108,10 +109,11 @@ export default async function PublicTokenPage({ params }: PublicTokenPageProps) 
                   @{profile.username}
                 </p>
               </div>
+              </div>
             </div>
           </CardHeader>
 
-          <CardContent className="space-y-0 px-5 pb-8 pt-2 sm:px-8 sm:pb-10">
+          <CardContent className="space-y-0 px-4 pb-8 pt-2 sm:px-8 sm:pb-10">
             <PublicProfileSendForm
               receiverUsername={profile.username}
               isSelf={isSelf}
