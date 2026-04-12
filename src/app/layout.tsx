@@ -25,7 +25,10 @@ const APP_DEFAULT_TITLE = "SecretGift";
 const APP_TITLE_TEMPLATE = "%s — SecretGift";
 const APP_DESCRIPTION = "Send secret messages and virtual gifts with timed reveals.";
 
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   applicationName: APP_NAME,
   title: {
     default: APP_DEFAULT_TITLE,

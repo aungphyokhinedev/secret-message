@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { ShareCard } from "@/components/share/share-card";
@@ -10,12 +11,21 @@ import { H3, Muted, Small } from "@/components/ui/typography";
 import { BLOCKED_ACCOUNT_ERROR } from "@/lib/access-control";
 import { profileInitialsFromLabel } from "@/lib/profile-initials";
 import { countSentInteractionsSinceUtcDayStart } from "@/lib/sent-interactions-daily-count";
+import { buildPublicProfileMetadata } from "@/lib/public-profile-share-metadata";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type PublicUserPageProps = {
   params: Promise<{ username: string }>;
 };
+
+export async function generateMetadata({ params }: PublicUserPageProps): Promise<Metadata> {
+  const { username } = await params;
+  return buildPublicProfileMetadata({
+    username,
+    canonicalPath: `/u/${encodeURIComponent(username)}`,
+  });
+}
 
 export default async function PublicUserPage({ params }: PublicUserPageProps) {
   if (!hasSupabaseEnv()) {

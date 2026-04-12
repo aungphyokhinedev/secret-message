@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { ShareCard } from "@/components/share/share-card";
@@ -10,12 +11,20 @@ import { H3, Muted, Small } from "@/components/ui/typography";
 import { BLOCKED_ACCOUNT_ERROR } from "@/lib/access-control";
 import { profileInitialsFromLabel } from "@/lib/profile-initials";
 import { countSentInteractionsSinceUtcDayStart } from "@/lib/sent-interactions-daily-count";
+import { buildTokenShareMetadata } from "@/lib/public-profile-share-metadata";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type PublicTokenPageProps = {
   params: Promise<{ token: string }>;
 };
+
+export async function generateMetadata({ params }: PublicTokenPageProps): Promise<Metadata> {
+  const { token } = await params;
+  return buildTokenShareMetadata({
+    canonicalPath: `/p/${encodeURIComponent(token)}`,
+  });
+}
 
 export default async function PublicTokenPage({ params }: PublicTokenPageProps) {
   if (!hasSupabaseEnv()) {
